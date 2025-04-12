@@ -1,0 +1,33 @@
+# Node.js project .gitignore file
+
+# Ignore node_modules directory
+node_modules/
+
+# Ignore logs and debug files
+*.log
+debug.log
+npm-debug.log*
+
+# Ignore operating system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.iml
+*.sublime-text*
+
+# Ignore package manager files
+package-lock.json
+yarn.lock
+
+# Ignore build and dist directories
+build/
+dist/
+
+# Ignore test coverage files
+coverage/
+
+# ignore .env files
+.env
