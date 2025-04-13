@@ -108,13 +108,22 @@
 
     /* Completeness */
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
-    "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
+    "skipLibCheck": true,                                 /* Skip type checking all .d.ts files. */
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types" // Point to your custom types folder
+    ]
   },
-  // "files": [
-  //   "#",
-  //   "Added",
-  //   "dom",
-  //   "lib,",
-  //   "skipLibCheck"
-  // ]
+  "include": [
+    "src/**/*", // Include all files under src
+    // "src/types/**/*.d.ts" // Explicitly include type definitions
+  ],
+  "exclude": ["node_modules", "dist"], // Exclude build output and dependencies
+  "ts-node": {
+      "files": true // Tell ts-node to potentially use files specified in tsconfig
+      // You might need other ts-node options depending on your setup
+      // "compilerOptions": {
+      //   "module": "CommonJS" // Ensure ts-node uses CommonJS if needed
+      // }
+  }
 }

@@ -18,7 +18,8 @@
   </style>
 </head>
 <body>
-  <form method="post"> <h2>Sign in</h2>
+  <form method="post" action="/interaction/<%= uid %>/login">
+    <h2>Sign in</h2>
     <p>Application <strong><%= client.clientName || client.clientId %></strong> requests sign in.</p>
 
     <% if (flash) { %>

@@ -3,6 +3,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 // import Provider, { InteractionResults, PromptDetail } from 'oidc-provider';
 import Account from '../config/account'; // Import your Account class
 import oidcProvider from '../config/oidcProvider'; // Import the provider instance
+import { ObjectId } from 'mongoose';
 
 const router = Router();
 
@@ -19,8 +20,15 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
         // Get interaction details from the provider
         const interactionDetails = await oidcProvider.interactionDetails(req, res);
         // Destructure known properties
-        const { uid, prompt, params, session } = interactionDetails;
+        const { uid, prompt, params, session, exp } = interactionDetails; // session might contain accountId if logged in
         console.log(`Interaction check for UID: ${uid}, Prompt: ${prompt.name}`);
+        // Log session details (if available) to see if user is already logged in at this stage
+        if(session) {
+            console.log(`Session details: accountId=${session.accountId}, uid=${session.uid}, exp=${exp}`);
+        } else {
+             console.log('No active session found for this interaction.');
+        }
+
 
         // Load client metadata using the client_id from params
         const client = await oidcProvider.Client.find(params.client_id as string);
@@ -44,21 +52,31 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
                 });
             }
             case 'consent': {
+                // --- DEBUGGING: Log the details object when consent is prompted ---
+                console.log(`Consent prompt details for UID ${uid}:`, JSON.stringify(prompt.details, null, 2));
+                // --- End Debugging ---
+
                 // Find account details associated with this interaction
-                const accountId = prompt.details.accountId as string; // Get accountId from prompt details
+                // Check session first, then prompt details as fallback (though it should be in details)
+                const accountId = session?.accountId || prompt.details.accountId;
                 if (!accountId) {
-                   return next(new Error('Account ID missing for consent prompt'));
+                   // If accountId is missing here, the login step likely didn't correctly establish the session/link
+                   console.error(`Account ID missing for consent prompt. Session: ${JSON.stringify(session)}, Prompt Details: ${JSON.stringify(prompt.details)}`);
+                   return next(new Error('Account ID missing for consent prompt')); // Error reported by user
                 }
-                const account = await Account.findAccount(undefined, accountId); // Find account details
+                console.log(`Account ID found for consent: ${accountId}`);
+
+                const account = await Account.findAccount(undefined, accountId as string); // Find account details
                 if (!account) {
+                   console.error(`Account object not found for accountId: ${accountId}`);
                    return next(new Error(`Account not found for consent: ${accountId}`));
                 }
 
                 // Get the scopes that require user consent
-                // Use missingOIDCScope and potentially missingResourceScopes
-                const missingOidcScopes = prompt.details.missingOIDCScope || [];
-                // Combine with resource scopes if needed, for simplicity just use OIDC scopes here
-                const scopesToDisplay = Array.isArray(missingOidcScopes) ? [...missingOidcScopes] : []; // Ensure it's an array or default to empty
+                const missingOidcScopes = prompt.details.missingOIDCScope || ([] as string[]);
+                const scopesToDisplay = Array.isArray(missingOidcScopes) ? [...missingOidcScopes] : [];
+
+                console.log(`Scopes requiring consent: ${scopesToDisplay.join(', ')}`);
 
                 // Render the consent form view
                 return res.render('consent', {
@@ -118,13 +136,12 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
         }
 
         // If authentication succeeds, prepare the result for interactionFinished
+        // Use the MongoDB document ID as accountId
+        const accountIdString = (account._id as ObjectId).toString(); // Convert ObjectId to string
+        console.log(`Login successful for accountId: ${accountIdString}`);
         const result = {
             login: {
-                accountId: (account as { _id: { toString: () => string } })._id.toString(), // Use the MongoDB document ID as accountId
-                // acr: 'urn:mace:incommon:iap:silver', // Optional: Authentication Context Class Reference
-                // amr: ['pwd'], // Optional: Authentication Methods References
-                // remember: !!req.body.remember, // Optional: Implement "remember me" logic
-                // ts: Math.floor(Date.now() / 1000), // Optional: Timestamp of login
+                accountId: accountIdString, // Use the MongoDB document ID as accountId
             },
         };
 
@@ -138,67 +155,89 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
 
 // Handle Consent Form Submission (POST)
 router.post('/:uid/confirm', setNoCache, async (req: Request, res: Response, next: NextFunction) => {
+    console.log(`[Interaction /confirm POST] Received consent confirmation for UID: ${req.params.uid}`); // Log entry
     try {
         // Get interaction details
+        console.log('[Interaction /confirm POST] Getting interaction details...');
         const interactionDetails = await oidcProvider.interactionDetails(req, res);
-        // Destructure details needed
-        const { prompt: { name, details }, params, session } = interactionDetails;
+        const { prompt: { name, details }, params, session, grantId: existingGrantId } = interactionDetails; // Use existingGrantId alias
+        console.log(`[Interaction /confirm POST] Details retrieved. Prompt: ${name}, Has Session: ${!!session}, Has GrantId: ${!!existingGrantId}`);
+
 
         // Ensure this interaction is waiting for consent
         if (name !== 'consent') {
+           console.error('[Interaction /confirm POST] Error: Interaction prompt is not consent.');
            return next(new Error('Interaction prompt is not consent'));
         }
 
-        let { grantId } = interactionDetails;
+        // Ensure accountId is present (should be after login)
+        const accountId = session?.accountId || details.accountId as string;
+        console.log(`[Interaction /confirm POST] Account ID: ${accountId}`);
+         if (!accountId) {
+             console.error('[Interaction /confirm POST] Error: Account ID missing when trying to confirm consent.');
+             return next(new Error('Cannot confirm consent without a logged-in user session.'));
+         }
+         console.log(`[Interaction /confirm POST] Account ID found: ${accountId}`);
+
+
         let grant;
 
         // Find or create the grant object associated with this interaction
-        if (grantId) {
-            // Load existing grant (if resuming interaction)
-            grant = await oidcProvider.Grant.find(grantId);
-        } else {
-            // Create new grant if first time consenting
+         console.log(`[Interaction /confirm POST] Looking for existing grant with ID: ${existingGrantId}`);
+        if (existingGrantId) {
+            grant = await oidcProvider.Grant.find(existingGrantId);
+             console.log(`[Interaction /confirm POST] Existing grant ${existingGrantId ? 'found' : 'not found'}.`);
+        }
+
+        if (!grant) {
+             console.log(`[Interaction /confirm POST] Creating new grant for account ${accountId} and client ${params.client_id}`);
             grant = new oidcProvider.Grant({
-                accountId: details.accountId as string, // Use the accountId from the interaction details
+                accountId: accountId, // Use the confirmed accountId
                 clientId: params.client_id as string,
             });
         }
 
-        if (!grant) {
-            return next(new Error('Grant could not be found or created.'));
-        }
-
         // Update the grant with the scopes/claims the user consented to
-        // In this basic example, we assume user consents to all requested scopes/claims
+        console.log('[Interaction /confirm POST] Updating grant scopes/claims...');
         if (details.missingOIDCScope) {
-             // Grant expects space-separated string of scopes
-             grant.addOIDCScope((details.missingOIDCScope as string[]).join(' '));
+             const scopesToAdd = (details.missingOIDCScope as string[]).join(' ');
+             console.log(`[Interaction /confirm POST] Adding OIDC Scopes: ${scopesToAdd}`);
+             grant.addOIDCScope(scopesToAdd);
+        } else {
+             console.log('[Interaction /confirm POST] No missing OIDC scopes.');
         }
-        if (details.missingOIDCClaims) {
-             grant.addOIDCClaims(details.missingOIDCClaims as string[]);
-        }
-        if (details.missingResourceScopes) {
-             // Grant expects space-separated string of scopes per resource indicator
-             for (const [indicator, scopes] of Object.entries(details.missingResourceScopes)) {
-                 grant.addResourceScope(indicator, (scopes as string[]).join(' '));
-             }
-        }
+        // Add similar checks and logging for missingOIDCClaims and missingResourceScopes if used
 
         // Save the grant to the adapter (e.g., MongoDB)
-        grantId = await grant.save();
+        console.log('[Interaction /confirm POST] Saving grant...');
+        console.log('Grant object before save:', JSON.stringify(grant, null, 2));
+        const savedGrantId = await grant.save();
+        console.log(`[Interaction /confirm POST] Grant saved successfully. Grant ID: ${savedGrantId}`);
+
 
         // Prepare the result for interactionFinished
-        const consentResult = {
-             consent: {
-                 grantId: grantId, // Pass the grant ID
-                 // rejectedScopes: [], // If implementing selective consent, list rejected scopes here
-                 // rejectedClaims: [], // If implementing selective consent, list rejected claims here
-             }
-         };
+        const consentResult = { consent: { grantId: savedGrantId } };
+        console.log('[Interaction /confirm POST] Calling interactionFinished...');
+
         // Complete the interaction, associating the grant with the session
-        await oidcProvider.interactionFinished(req, res, consentResult, { mergeWithLastSubmission: true });
+        try {
+            // ... existing code up to preparing consentResult ...
+            console.log('[Interaction /confirm POST] Calling interactionFinished...');
+            const finishResult = await oidcProvider.interactionFinished(req, res, consentResult, { mergeWithLastSubmission: false });
+            // ADD THIS LOG:
+            console.log('[Interaction /confirm POST] interactionFinished resolved with:', finishResult);
+            console.log('[Interaction /confirm POST] Provider should now redirect.');
+        } catch (err) {
+            console.error('[Interaction /confirm POST] Error during or after interactionFinished:', err);
+            next(err);
+        }
+        // await oidcProvider.interactionFinished(req, res, consentResult, { mergeWithLastSubmission: false });
+        // console.log('[Interaction /confirm POST] interactionFinished completed. Provider should now redirect.');
+        // NOTE: If execution reaches here, the provider *should* handle the redirect.
+        // If the browser hangs, check the Network Tab for the response to this POST.
 
     } catch (err) {
+         console.error('[Interaction /confirm POST] Error caught:', err);
         next(err);
     }
 });
@@ -206,12 +245,10 @@ router.post('/:uid/confirm', setNoCache, async (req: Request, res: Response, nex
 // Handle Abort Interaction (POST)
 router.post('/:uid/abort', setNoCache, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Prepare the result indicating user aborted
         const result = {
             error: 'access_denied',
             error_description: 'End-User aborted interaction',
         };
-        // Complete the interaction with the error result
         await oidcProvider.interactionFinished(req, res, result, { mergeWithLastSubmission: false });
     } catch (err) {
         next(err);
