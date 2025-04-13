@@ -11,7 +11,7 @@ COPY package.json package-lock.json* ./
 
 # Install *all* dependencies needed for building the application
 # Using npm ci ensures a clean install based on lock file
-RUN npm ci
+# RUN npm ci
 
 # Copy the rest of the application source code
 # Ensure .dockerignore is properly configured to exclude unnecessary files
