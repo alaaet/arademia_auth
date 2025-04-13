@@ -42,8 +42,10 @@
     # Copy the compiled JavaScript code from the builder stage
     COPY --from=builder /app/dist ./dist
     
-    # Copy views
-    # COPY views ./views
+    # Copy views from the src directory in the build context
+    # to the dist/views directory inside the container's app directory
+    # to match app.set('views', path.join(__dirname, './views')) in server.ts
+    COPY src/views ./dist/views
     
     EXPOSE 5001
     CMD ["node", "dist/server.js"]

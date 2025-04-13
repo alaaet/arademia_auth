@@ -117,6 +117,9 @@
   "include": [
     "src/**/*", // Include all files under src
     // "src/types/**/*.d.ts" // Explicitly include type definitions
+    // include files under src/views with .ejs extension
+    "src/views/**/*.ejs",
+
   ],
   "exclude": ["node_modules", "dist"], // Exclude build output and dependencies
   "ts-node": {
