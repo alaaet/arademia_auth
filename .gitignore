@@ -19,8 +19,8 @@ Thumbs.db
 *.sublime-text*
 
 # Ignore package manager files
-package-lock.json
-yarn.lock
+# package-lock.json
+# yarn.lock
 
 # Ignore build and dist directories
 build/
