@@ -43,7 +43,7 @@
     COPY --from=builder /app/dist ./dist
     
     # Copy views
-    COPY views ./views
+    # COPY views ./views
     
     EXPOSE 5001
     CMD ["node", "dist/server.js"]
