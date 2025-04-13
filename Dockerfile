@@ -40,7 +40,7 @@ COPY package.json package-lock.json* ./
 
 # Install ONLY production dependencies directly in the runner stage
 # This ensures native modules like bcrypt are built for the final runtime environment
-RUN npm ci --omit=dev
+# RUN npm ci --omit=dev
 
 # Copy the compiled JavaScript code from the builder stage
 COPY --from=builder /app/dist ./dist
