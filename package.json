@@ -25,7 +25,8 @@
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
     "mongoose": "^8.13.2",
-    "oidc-provider": "^8.8.1"
+    "oidc-provider": "^8.8.1",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

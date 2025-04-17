@@ -31,3 +31,7 @@ coverage/
 
 # ignore .env files
 .env
+
+# logs folder and files
+logs/
+*.log

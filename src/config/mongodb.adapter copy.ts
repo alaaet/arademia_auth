@@ -1,7 +1,9 @@
 import { Adapter, AdapterPayload } from 'oidc-provider';
-import { Collection, Db, ObjectId, Document as MongoDocument } from 'mongodb';
-import { getDb } from './database';
+import { Collection, Db, ObjectId, Document as MongoDocument } from 'mongodb'; // Import ObjectId if needed for type checks elsewhere
+import { getDb } from './database'; // Import function to get DB instance
 
+// Helper function to get a specific collection, now generic
+// Defaults to generic MongoDocument if no type is provided
 const getCollection = <T extends MongoDocument = MongoDocument>(name: string): Collection<T> => {
     const db = getDb();
     if (!db) {
@@ -11,20 +13,22 @@ const getCollection = <T extends MongoDocument = MongoDocument>(name: string): C
     // Return collection typed with T
     return db.collection<T>(collectionName);
 };
+
+// Define the structure stored in MongoDB, including our dedicated ID field
 interface StoredPayload extends AdapterPayload {
-    _id?: ObjectId;
-    oidcId: string;
+    _id?: ObjectId; // MongoDB's native ObjectId
+    oidcId: string; // The ID provided by oidc-provider
     expiresAt?: Date;
-    consumed?: number; // Timestamp when consumed
-    uid?: string;
-    userCode?: string;
-    grantId?: string;
+    consumed?: number; // Add consumed field if needed by consume logic
 }
 
-class MongoDbAdapter implements Adapter {
-    constructor(public name: string) {}
 
-        // Get the MongoDB collection specifically typed for StoredPayload
+class MongoDbAdapter implements Adapter {
+    constructor(public name: string) {
+        // name is the model name passed by oidc-provider
+    }
+
+    // Get the MongoDB collection specifically typed for StoredPayload
     private get collection(): Collection<StoredPayload> {
         const collectionName = `${this.name.toLowerCase()}s`;
         // Call the generic helper, providing the specific type argument
@@ -51,58 +55,56 @@ class MongoDbAdapter implements Adapter {
 
     /**
      * Finds an OIDC artifact by its provider ID ('oidcId').
-     * Returns undefined if expired or already consumed.
      */
     async find(id: string): Promise<AdapterPayload | undefined> {
+        // Query using the dedicated 'oidcId' field.
         const result = await this.collection.findOne({ oidcId: id });
+
         if (!result) return undefined;
 
         // Check expiration
         if (result.expiresAt && result.expiresAt < new Date()) {
-            await this.destroy(id);
+            await this.destroy(id); // Destroy using the oidcId
             return undefined;
         }
 
-        // *** ADDED CHECK: Return undefined if already consumed ***
-        if (result.consumed) {
-            console.log(`[MongoAdapter:${this.name}] Find - Already Consumed: ${id}`);
-            // Optionally delete consumed codes after a short grace period? For now, just don't return it.
-            // await this.destroy(id);
-            return undefined;
-        }
-
+        // Return the payload, excluding MongoDB _id and our oidcId field
         const { _id, oidcId, ...payload } = result;
         return payload as AdapterPayload;
     }
 
+    /**
+     * Finds an OIDC artifact by its UID (used for sessions).
+     */
     async findByUid(uid: string): Promise<AdapterPayload | undefined> {
-         const result = await this.collection.findOne({ uid });
+        const result = await this.collection.findOne({ uid }); // Query by 'uid' field
+
          if (!result) return undefined;
+
+         // Check expiration
          if (result.expiresAt && result.expiresAt < new Date()) {
-             await this.destroy(result.oidcId);
+             await this.destroy(result.oidcId); // Destroy using oidcId
              return undefined;
          }
-         // *** ADDED CHECK: Return undefined if already consumed (relevant for Session?) ***
-         if (result.consumed) {
-             console.log(`[MongoAdapter:${this.name}] FindByUid - Already Consumed: ${uid}`);
-             return undefined;
-         }
+
          const { _id, oidcId, ...payload } = result;
          return payload as AdapterPayload;
     }
 
+    /**
+     * Finds an OIDC artifact by its user code (used for device flow).
+     */
     async findByUserCode(userCode: string): Promise<AdapterPayload | undefined> {
-         const result = await this.collection.findOne({ userCode });
+         const result = await this.collection.findOne({ userCode }); // Query by 'userCode' field
+
          if (!result) return undefined;
-         if (result.expiresAt && result.expiresAt < new Date()) {
-             await this.destroy(result.oidcId);
+
+         // Check expiration
+          if (result.expiresAt && result.expiresAt < new Date()) {
+             await this.destroy(result.oidcId); // Destroy using oidcId
              return undefined;
          }
-          // *** ADDED CHECK: Return undefined if already consumed (relevant for DeviceCode?) ***
-         if (result.consumed) {
-             console.log(`[MongoAdapter:${this.name}] FindByUserCode - Already Consumed: ${userCode}`);
-             return undefined;
-         }
+
          const { _id, oidcId, ...payload } = result;
          return payload as AdapterPayload;
     }
@@ -135,21 +137,20 @@ class MongoDbAdapter implements Adapter {
              }
         }
     }
+
     /**
-     * Marks an OIDC artifact as consumed by setting the 'consumed' timestamp.
+     * Marks an OIDC artifact (like an AuthorizationCode) as consumed using its provider ID ('oidcId').
      */
     async consume(id: string): Promise<void> {
         // Update using the dedicated 'oidcId' field.
-        const result = await this.collection.updateOne(
+        await this.collection.updateOne(
             { oidcId: id },
-            // Ensure the consumed field exists and is only set once
-            // { $currentDate: { consumed: { $type: 'timestamp' } } }
-            { $set: { consumed: Math.floor(Date.now() / 1000) } }
+            { $set: { consumed: Math.floor(Date.now() / 1000) } } // Set consumed timestamp
         );
-         // if (result.modifiedCount === 1) { console.log(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
     }
 }
 
+// Factory function required by oidc-provider
 export default function adapterFactory(name: string): Adapter {
     return new MongoDbAdapter(name);
 }

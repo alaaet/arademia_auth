@@ -24,6 +24,7 @@ import oidcProvider from './config/oidcProvider'; // Import the configured provi
 import authRoutes from './routes/authRoutes'; // Standard auth routes (status, logout)
 import interactionRoutes from './routes/interactionRoutes'; // OIDC Interaction routes
 import mongoose from 'mongoose';
+import { requestLogger } from './config/middlewares/requestLogger';
 
 const PORT = process.env.PORT || 5001; // Use port 5001 for auth service
 const ISSUER_URL = process.env.ISSUER_URL || `http://localhost:${PORT}`; // Get issuer URL for CSP
@@ -52,6 +53,9 @@ if (cluster.isPrimary) {
     app.set('views', path.join(__dirname, './views')); // Set views directory relative to src
     app.set('view engine', 'ejs'); // Set EJS as the view engine
 
+    // Request logger middleware for logging requests
+    app.use(requestLogger)
+
     // --- Security Middleware ---
     // Explicitly configure Helmet's Content Security Policy
     // app.use(
@@ -70,7 +74,6 @@ if (cluster.isPrimary) {
     //     })
     // );
     // Temporarily disable CSP for debugging
-    
     app.use(helmet({ contentSecurityPolicy: false }));
 
     // Uncomment this if you want to use CSP with Helmet
@@ -121,6 +124,7 @@ if (cluster.isPrimary) {
         name: process.env.SESSION_NAME || 'connect.sid'
     }));
 
+
     // --- Routes ---
     // Simple health check / worker check route
     app.get('/', (req: Request, res: Response) => {
@@ -133,9 +137,10 @@ if (cluster.isPrimary) {
     // Mount standard auth routes (like status, logout)
     app.use('/auth', authRoutes); // Mounted at /auth path
 
-    // Mount the oidc-provider middleware.
-    // It handles OIDC discovery, jwks, authorization, token endpoints etc.
-    // Mounting it at the root '/' is common practice for OIDC providers.
+    // --- OIDC Provider Middleware ---
+    // Mount the oidc-provider middleware HERE, before other app-specific routes
+    // that might potentially conflict or need OIDC context established first.
+    // It handles standard OIDC endpoints like /auth, /token, /jwks, /userinfo etc.
     app.use(oidcProvider.callback());
 
     // --- Error Handling ---
@@ -174,47 +179,6 @@ if (cluster.isPrimary) {
 
     // Use the explicitly typed error handler (Place last)
     app.use(centralErrorHandler);
-
-
-    // In src/server.ts (Worker process section)
-
-    oidcProvider.on('server_error', (ctx, error) => {
-        // ctx is the Koa context oidc-provider uses internally
-        console.error('OIDC Provider Server Error Event:', error, 'Context:', ctx?.request?.url);
-    });
-
-    oidcProvider.on('grant.error', (ctx, error) => {
-        console.error('OIDC Provider Grant Error Event:', error, 'Context:', ctx?.request?.url);
-    });
-
-    oidcProvider.on('authorization_code.saved', (code) => {
-        console.log('OIDC Provider Event: Authorization Code Saved - JTI:', code.jti, 'GrantID:', code.grantId);
-    });
-
-    oidcProvider.on('grant.saved', (grant) => {
-        console.log('OIDC Provider Event: Grant Saved - ID:', grant.jti, 'AccountID:', grant.accountId);
-    });
-
-    oidcProvider.on('interaction.finished', async (ctx) => {
-        console.log('OIDC Provider Event: Interaction Finished - ID:', ctx.interactionId);
-        const interaction = await oidcProvider.Interaction.find(ctx.interactionId);
-        if (interaction) {
-            console.log('OIDC Provider Event: Interaction Found - ID:', ctx.interactionId);
-        } else {
-            console.log('OIDC Provider Event: Interaction Not Found - ID:', ctx.interactionId);
-        }
-    });
-
-    oidcProvider.on('server_error', (ctx, error) => { console.error('OIDC Provider Server Error Event:', error); });
-    oidcProvider.on('grant.error', (ctx, error) => { console.error('OIDC Provider Grant Error Event:', error); });
-
-    // oidc redirect event
-    oidcProvider.on('redirect_uri.success', (ctx) => {
-        console.log('OIDC Provider Event: Redirect URI Success - Context:', ctx.request.url);
-    });
-    oidcProvider.on('redirect_uri.error', (ctx, error) => {
-        console.error('OIDC Provider Event: Redirect URI Error - Context:', ctx.request.url, 'Error:', error);
-    });
 
 
     // --- Start Server ---

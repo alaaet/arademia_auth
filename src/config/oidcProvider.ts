@@ -8,9 +8,19 @@ dotenv.config(); // Load environment variables
 
 const ISSUER_URL = process.env.ISSUER_URL;
 const MONGODB_URI = process.env.MONGODB_URI; // Get MongoDB URI for adapter
+// Client 1: arademia_front_client
 const FRONTEND_URL = process.env.FRONTEND_URL;
-const FRONTEND_CALLBACK_URL = FRONTEND_URL ? `${FRONTEND_URL}/auth/callback` : undefined;
+const FRONTEND_CALLBACK_URL = FRONTEND_URL ? `${FRONTEND_URL}/auth/callback` : '';
+const FRONTEND_LOGOUT_CALLBACK_URL = FRONTEND_URL ? `${FRONTEND_URL}/auth/logout` : '';
+// Client 2: arademia_intranet_client
+const INTRANET_URL = process.env.INTRANET_URL;
+const INTRANET_CALLBACK_URL = INTRANET_URL ? `${INTRANET_URL}/auth/callback` : '';
+const INTRANET_CLIENT_ID = process.env.INTRANET_CLIENT_ID || 'arademia_intranet_client';
+const INTRANET_CLIENT_SECRET = process.env.INTRANET_CLIENT_SECRET || 'arademia_intranet_secret_change_this';
+const INTRANET_LOGOUT_CALLBACK_URL = process.env.INTRANET_LOGOUT_CALLBACK_URL || `${INTRANET_URL}/auth/logout`;
+// Client 3: moodle_oidc_client
 const MOODLE_CALLBACK_URL = process.env.MOODLE_CALLBACK_URL+'';
+const MOODLE_LOGOUT_CALLBACK_URL = process.env.MOODLE_LOGOUT_CALLBACK_URL+''; // Example Moodle logout destination
 
 // --- Environment Variable Validation ---
 if (!ISSUER_URL || !MONGODB_URI || !process.env.SESSION_SECRET) {
@@ -31,14 +41,26 @@ const clients: ClientMetadata[] = [
     response_types: ['code'],
     redirect_uris: FRONTEND_CALLBACK_URL ? [FRONTEND_CALLBACK_URL] : [],
     token_endpoint_auth_method: 'client_secret_post',
+    post_logout_redirect_uris: [FRONTEND_LOGOUT_CALLBACK_URL],
+  },
+  {
+    client_id: INTRANET_CLIENT_ID,
+    client_secret: INTRANET_CLIENT_SECRET,
+    grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'],
+    redirect_uris: INTRANET_CALLBACK_URL ? [INTRANET_CALLBACK_URL] : [],
+    token_endpoint_auth_method: 'client_secret_post',
+    post_logout_redirect_uris: [INTRANET_LOGOUT_CALLBACK_URL],
+
   },
   {
     client_id: 'moodle_oidc_client',
     client_secret: 'moodle_oidc_secret_change_this',
     grant_types: ['authorization_code'],
     response_types: ['code'],
-    redirect_uris: [MOODLE_CALLBACK_URL],
     token_endpoint_auth_method: 'client_secret_post',
+    redirect_uris: [MOODLE_CALLBACK_URL],
+    post_logout_redirect_uris: [MOODLE_LOGOUT_CALLBACK_URL],
   },
 ];
 
@@ -70,12 +92,21 @@ const configuration: Configuration = {
     // Enable session management feature for logout etc.
     backchannelLogout: { enabled: true },
   },
-  // JWKS configuration (MUST replace with your own keys for production)
-  jwks: {
-    keys: [
-         { "p": "...", "kty": "RSA", "q": "...", "d": "...", "e": "AQAB", "use": "sig", "kid": "dev-key-1", "qi": "...", "dp": "...", "dq": "...", "n": "..." }
-    ],
-  },
+    // --- JWKS Configuration ---
+  // REMOVED the jwks property entirely for development.
+  // oidc-provider will generate ephemeral keys in memory on startup.
+  //
+  // IMPORTANT FOR PRODUCTION:
+  // You MUST generate stable signing keys (e.g., RSA or EC) and configure them here.
+  // Load keys securely (e.g., from environment variables or a key vault).
+  // Example structure (DO NOT use these placeholders):
+  // jwks: {
+  //   keys: [
+  //     { /* Your actual private key in JWK format */ }
+  //   ],
+  // },
+  // --- End JWKS Configuration ---
+  
   cookies: {
     keys: process.env.SESSION_SECRET?.split(','),
   },
@@ -87,9 +118,12 @@ const configuration: Configuration = {
   issueRefreshToken: async (ctx, client, code) => {
      return client.grantTypeAllowed('refresh_token') && code.scopes.has('offline_access');
   },
-   pkce: {
-     required: () => false,
-   },
+  pkce: {
+    // Explicitly support S256 (used by oidc-client-ts)
+    // Setting required: true is recommended for better security
+    required: () => true,
+    methods: ['S256'],
+  },
    // Add TTL configuration for various artifacts (optional but recommended)
    ttl: {
      AccessToken: 60 * 60, // 1 hour
