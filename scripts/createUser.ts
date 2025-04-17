@@ -2,13 +2,14 @@ import mongoose from 'mongoose';
 import User from '../src/models/User'; // Adjust path to your User model
 import connectDB from '../src/config/database'; // Adjust path to your DB connection
 import dotenv from 'dotenv';
+import logger from '../src/config/middlewares/logger';
 
 // Load environment variables (needed for database connection string)
 dotenv.config({ path: '.env' }); // Ensure correct path to .env
 
 const createUser = async () => {
   if (!process.env.MONGODB_URI) {
-      console.error("Error: MONGODB_URI not found in environment variables.");
+      logger.error("Error: MONGODB_URI not found in environment variables.");
       process.exit(1);
   }
   await connectDB(); // Connect to the database
@@ -21,19 +22,19 @@ const createUser = async () => {
   // --- ---
 
   try {
-    console.log(`Checking for existing user: ${username}`);
+    logger.info(`Checking for existing user: ${username}`);
     let user = await User.findOne({ username: username.toLowerCase() });
 
     if (user) {
-      console.log(`User ${username} already exists.`);
+      logger.info(`User ${username} already exists.`);
       // Optional: Update existing user's password if needed
-      // console.log(`Updating password for ${username}...`);
+      // logger.info(`Updating password for ${username}...`);
       // user.password = password; // Set plain text, pre-save hook will hash it
       // await user.save();
-      // console.log(`Password updated for ${username}.`);
+      // logger.info(`Password updated for ${username}.`);
     } else {
       // Create new user
-      console.log(`Creating new user: ${username}`);
+      logger.info(`Creating new user: ${username}`);
       user = new User({
           username: username,
           password: password, // Provide plain text password here
@@ -41,13 +42,13 @@ const createUser = async () => {
           fullname: fullname
       });
       await user.save(); // Pre-save hook will hash the password
-      console.log(`User ${username} created successfully.`);
+      logger.info(`User ${username} created successfully.`);
     }
   } catch (error) {
-    console.error('Error during create/update user script:', error);
+    logger.error('Error during create/update user script:', error);
   } finally {
     await mongoose.disconnect();
-    console.log('Disconnected from DB.');
+    logger.info('Disconnected from DB.');
   }
 };
 

@@ -61,6 +61,6 @@ const logger = winston.createLogger({
 //     },
 // };
 
-console.log(`Logger initialized with level: ${logLevel}`);
+logger.info(`Logger initialized with level: ${logLevel}`);
 
 export default logger;

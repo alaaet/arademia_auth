@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import Account from './account'; // Import the Account class
 import adapterFactory from './mongodb.adapter'; // Import the MongoDB adapter factory
+import logger from './middlewares/logger';
 
 dotenv.config(); // Load environment variables
 
@@ -20,15 +21,16 @@ const INTRANET_CLIENT_SECRET = process.env.INTRANET_CLIENT_SECRET || 'arademia_i
 const INTRANET_LOGOUT_CALLBACK_URL = process.env.INTRANET_LOGOUT_CALLBACK_URL || `${INTRANET_URL}/auth/logout`;
 // Client 3: moodle_oidc_client
 const MOODLE_CALLBACK_URL = process.env.MOODLE_CALLBACK_URL+'';
+const MOODLE_CLIENT_ID = process.env.MOODLE_CLIENT_ID || 'arademia_intranet_client';
+const MOODLE_CLIENT_SECRET = process.env.MOODLE_CLIENT_SECRET || 'arademia_intranet_secret_change_this';
 const MOODLE_LOGOUT_CALLBACK_URL = process.env.MOODLE_LOGOUT_CALLBACK_URL+''; // Example Moodle logout destination
-
 // --- Environment Variable Validation ---
 if (!ISSUER_URL || !MONGODB_URI || !process.env.SESSION_SECRET) {
-  console.error('FATAL ERROR: ISSUER_URL, MONGODB_URI, or SESSION_SECRET environment variable is not set.');
+  logger.error('FATAL ERROR: ISSUER_URL, MONGODB_URI, or SESSION_SECRET environment variable is not set.');
   process.exit(1);
 }
 if (!FRONTEND_CALLBACK_URL) {
-    console.warn('WARN: FRONTEND_URL environment variable is not set. Redirect URI for arademia_front_client will be empty.');
+    logger.warn('WARN: FRONTEND_URL environment variable is not set. Redirect URI for arademia_front_client will be empty.');
 }
 // --- End Validation ---
 
@@ -54,12 +56,12 @@ const clients: ClientMetadata[] = [
 
   },
   {
-    client_id: 'moodle_oidc_client',
-    client_secret: 'moodle_oidc_secret_change_this',
+    client_id: MOODLE_CLIENT_ID,
+    client_secret: MOODLE_CLIENT_SECRET,
     grant_types: ['authorization_code'],
     response_types: ['code'],
-    token_endpoint_auth_method: 'client_secret_post',
     redirect_uris: [MOODLE_CALLBACK_URL],
+    token_endpoint_auth_method: 'client_secret_post',
     post_logout_redirect_uris: [MOODLE_LOGOUT_CALLBACK_URL],
   },
 ];

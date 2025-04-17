@@ -1,42 +1,60 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import bcrypt from 'bcrypt'; // Import bcrypt
+import bcrypt from 'bcrypt';
+import logger from '../config/middlewares/logger';
 
+// Define allowed user roles
+export type UserRole = 'student' | 'teacher' | 'admin';
+
+// Update the interface to include new fields
 export interface IUser extends Document {
-  moodleId?: number;
+  moodleId?: number; // Link to Moodle user ID (optional)
   username: string;
-  password?: string; // Password is now optional initially, required for login logic
+  password?: string; // Make required during registration logic, store hash
   email: string;
   fullname?: string;
-  // Add other fields later
+  role: UserRole; // Added: Role of the user
+  isValidated: boolean; // Added: Primarily for teacher validation by admin
+  isProfileComplete: boolean; // Added: Tracks if extended profile (on arademia_api) is filled
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const UserSchema: Schema = new Schema({
   moodleId: { type: Number, unique: true, sparse: true },
-  username: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String }, // Store the hashed password
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  username: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  password: { type: String, required: true }, // Password is required for registration
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   fullname: { type: String },
+  // Add new fields to the schema
+  role: {
+      type: String,
+      enum: ['student', 'teacher', 'admin'], // Define allowed roles
+      required: true
+  },
+  isValidated: { // False by default, especially for teachers needing admin approval
+      type: Boolean,
+      default: false
+  },
+  isProfileComplete: { // User needs to fill profile details later
+      type: Boolean,
+      default: false
+  },
 }, { timestamps: true });
 
-// --- Password Hashing Middleware ---
+// Pre-save hook for password hashing (ensure this is present and correct)
 UserSchema.pre<IUser>('save', async function (next) {
-    // Only hash the password if it has been modified (or is new) and is not empty
     if (!this.isModified('password') || !this.password) {
         return next();
     }
-
     try {
-        console.log(`Hashing password for user: ${this.username}`);
-        const saltRounds = 10; // Cost factor for hashing (adjust as needed)
+        const saltRounds = 10;
         const salt = await bcrypt.genSalt(saltRounds);
-        this.password = await bcrypt.hash(this.password, salt); // Hash the plain text password
-        console.log(`Password hashed for user: ${this.username}`);
+        this.password = await bcrypt.hash(this.password, salt);
         next();
     } catch (error: any) {
-        console.error(`Error hashing password for user ${this.username}:`, error);
-        next(error); // Pass error to Mongoose/Express error handler
+        logger.error(`Error hashing password for user ${this.username}:`, error);
+        next(error);
     }
 });
-// --- End Password Hashing Middleware ---
 
 export default mongoose.model<IUser>('User', UserSchema);

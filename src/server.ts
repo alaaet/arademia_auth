@@ -25,6 +25,7 @@ import authRoutes from './routes/authRoutes'; // Standard auth routes (status, l
 import interactionRoutes from './routes/interactionRoutes'; // OIDC Interaction routes
 import mongoose from 'mongoose';
 import { requestLogger } from './config/middlewares/requestLogger';
+import logger from './config/middlewares/logger';
 
 const PORT = process.env.PORT || 5001; // Use port 5001 for auth service
 const ISSUER_URL = process.env.ISSUER_URL || `http://localhost:${PORT}`; // Get issuer URL for CSP
@@ -32,15 +33,15 @@ const numCPUs = process.env.WORKERS ? parseInt(process.env.WORKERS, 10) : os.cpu
 
 // --- Cluster Setup ---
 if (cluster.isPrimary) {
-    console.log(`[Auth Server]: Primary process ${process.pid} is running`);
+    logger.info(`[Auth Server]: Primary process ${process.pid} is running`);
     const workersToFork = Math.min(numCPUs, os.cpus().length);
-    console.log(`[Auth Server]: Forking ${workersToFork} workers...`);
+    logger.info(`[Auth Server]: Forking ${workersToFork} workers...`);
     for (let i = 0; i < workersToFork; i++) cluster.fork();
-    cluster.on('online', (worker) => console.log(`[Auth Server]: Worker ${worker.process.pid} is online`));
+    cluster.on('online', (worker) => logger.info(`[Auth Server]: Worker ${worker.process.pid} is online`));
     cluster.on('exit', (worker, code, signal) => {
-        console.error(`[Auth Server]: Worker ${worker.process.pid} died.`);
+        logger.error(`[Auth Server]: Worker ${worker.process.pid} died.`);
         if (code !== 0 && !worker.exitedAfterDisconnect) {
-            console.log('[Auth Server]: Forking new worker...');
+            logger.info('[Auth Server]: Forking new worker...');
             cluster.fork();
         }
     });
@@ -98,7 +99,7 @@ if (cluster.isPrimary) {
 
     // --- CORS Middleware ---
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    console.log(`[Worker ${process.pid}]: Allowing CORS for origin: ${frontendUrl}`);
+    logger.info(`[Worker ${process.pid}]: Allowing CORS for origin: ${frontendUrl}`);
     app.use(cors({ origin: frontendUrl, credentials: true }));
 
     // --- Body Parsers ---
@@ -107,7 +108,7 @@ if (cluster.isPrimary) {
 
     // --- Session Middleware (Required for oidc-provider interactions/sessions) ---
     if (!process.env.SESSION_SECRET || !process.env.MONGODB_URI) {
-        console.error(`[Worker ${process.pid}]: FATAL ERROR: SESSION_SECRET or MONGODB_URI is not defined.`);
+        logger.error(`[Worker ${process.pid}]: FATAL ERROR: SESSION_SECRET or MONGODB_URI is not defined.`);
         process.exit(1);
     }
     app.use(session({
@@ -155,8 +156,8 @@ if (cluster.isPrimary) {
 
     // Define the Central Error Handling Middleware with explicit type
     const centralErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
-        console.error(`[Auth Worker ${process.pid}] Error: ${err.message}`);
-        console.error(err.stack); // Log stack trace for debugging
+        logger.error(`[Auth Worker ${process.pid}] Error: ${err.message}`);
+        logger.error(err.stack); // Log stack trace for debugging
 
         // Handle specific oidc-provider errors if needed
         if ((err as any).name === 'InteractionNeeded') {
@@ -183,19 +184,19 @@ if (cluster.isPrimary) {
 
     // --- Start Server ---
     const server = app.listen(PORT, () => {
-        console.log(`[Auth Server]: Worker ${process.pid} started on port ${PORT}`);
+        logger.info(`[Auth Server]: Worker ${process.pid} started on port ${PORT}`);
     });
 
     // Graceful shutdown
     const shutdown = (signal: string) => {
-        console.log(`[Auth Worker ${process.pid}]: ${signal} signal received: closing HTTP server`);
+        logger.info(`[Auth Worker ${process.pid}]: ${signal} signal received: closing HTTP server`);
         server.close(() => {
-            console.log(`[Auth Worker ${process.pid}]: HTTP server closed`);
+            logger.info(`[Auth Worker ${process.pid}]: HTTP server closed`);
             mongoose.connection.close(false).then(() => {
-                console.log(`[Auth Worker ${process.pid}]: MongoDB connection closed`);
+                logger.info(`[Auth Worker ${process.pid}]: MongoDB connection closed`);
                 process.exit(0);
             }).catch(err => {
-                console.error(`[Auth Worker ${process.pid}]: Error closing MongoDB connection:`, err);
+                logger.error(`[Auth Worker ${process.pid}]: Error closing MongoDB connection:`, err);
                 process.exit(1);
             });
         });

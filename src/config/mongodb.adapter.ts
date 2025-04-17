@@ -1,6 +1,7 @@
 import { Adapter, AdapterPayload } from 'oidc-provider';
 import { Collection, Db, ObjectId, Document as MongoDocument } from 'mongodb';
 import { getDb } from './database';
+import logger from './middlewares/logger';
 
 const getCollection = <T extends MongoDocument = MongoDocument>(name: string): Collection<T> => {
     const db = getDb();
@@ -65,7 +66,7 @@ class MongoDbAdapter implements Adapter {
 
         // *** ADDED CHECK: Return undefined if already consumed ***
         if (result.consumed) {
-            console.log(`[MongoAdapter:${this.name}] Find - Already Consumed: ${id}`);
+            logger.info(`[MongoAdapter:${this.name}] Find - Already Consumed: ${id}`);
             // Optionally delete consumed codes after a short grace period? For now, just don't return it.
             // await this.destroy(id);
             return undefined;
@@ -84,7 +85,7 @@ class MongoDbAdapter implements Adapter {
          }
          // *** ADDED CHECK: Return undefined if already consumed (relevant for Session?) ***
          if (result.consumed) {
-             console.log(`[MongoAdapter:${this.name}] FindByUid - Already Consumed: ${uid}`);
+             logger.info(`[MongoAdapter:${this.name}] FindByUid - Already Consumed: ${uid}`);
              return undefined;
          }
          const { _id, oidcId, ...payload } = result;
@@ -100,7 +101,7 @@ class MongoDbAdapter implements Adapter {
          }
           // *** ADDED CHECK: Return undefined if already consumed (relevant for DeviceCode?) ***
          if (result.consumed) {
-             console.log(`[MongoAdapter:${this.name}] FindByUserCode - Already Consumed: ${userCode}`);
+             logger.info(`[MongoAdapter:${this.name}] FindByUserCode - Already Consumed: ${userCode}`);
              return undefined;
          }
          const { _id, oidcId, ...payload } = result;
@@ -121,17 +122,17 @@ class MongoDbAdapter implements Adapter {
     async revokeByGrantId(grantId: string): Promise<void> {
         // This logic remains the same - delete based on the 'grantId' field.
         const modelsToRevoke = ['AccessToken', 'AuthorizationCode', 'RefreshToken', 'DeviceCode', 'BackchannelAuthenticationRequest'];
-        console.log(`[MongoAdapter] Revoking by Grant ID: ${grantId}`);
+        logger.info(`[MongoAdapter] Revoking by Grant ID: ${grantId}`);
         for (const modelName of modelsToRevoke) {
              try {
                  // Need to get collection using lowercase name convention
                  const coll = getCollection(`${modelName.toLowerCase()}s`);
                  const result = await coll.deleteMany({ grantId });
                  if (result.deletedCount > 0) {
-                     console.log(`[MongoAdapter:${modelName}] Revoked ${result.deletedCount} items for Grant ID: ${grantId}`);
+                     logger.info(`[MongoAdapter:${modelName}] Revoked ${result.deletedCount} items for Grant ID: ${grantId}`);
                  }
              } catch (error) {
-                  console.error(`[MongoAdapter] Error revoking ${modelName} for grantId ${grantId}:`, error);
+                  logger.error(`[MongoAdapter] Error revoking ${modelName} for grantId ${grantId}:`, error);
              }
         }
     }
@@ -146,7 +147,7 @@ class MongoDbAdapter implements Adapter {
             // { $currentDate: { consumed: { $type: 'timestamp' } } }
             { $set: { consumed: Math.floor(Date.now() / 1000) } }
         );
-         // if (result.modifiedCount === 1) { console.log(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
+         // if (result.modifiedCount === 1) { logger.info(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
     }
 }
 

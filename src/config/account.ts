@@ -2,6 +2,7 @@ import User, { IUser } from '../models/User'; // Import your User model
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose'; // Import mongoose if needed for ObjectId validation
 import { AccountClaims } from 'oidc-provider'; // Import AccountClaims type from oidc-provider
+import logger from './middlewares/logger';
 
 // Define structure for the user object used by oidc-provider's findAccount
 // Add index signature to match the expected Account type from oidc-provider
@@ -24,16 +25,16 @@ class Account {
         try {
             // Validate if the id is a valid MongoDB ObjectId if that's what you use
             if (!mongoose.Types.ObjectId.isValid(id)) {
-                 console.log(`findAccount: Invalid ID format: ${id}`);
+                 logger.info(`findAccount: Invalid ID format: ${id}`);
                  return undefined;
             }
 
             const user = await User.findById(id).lean(); // Use lean() for plain JS object
             if (!user) {
-                console.log(`findAccount: User not found for id: ${id}`);
+                logger.info(`findAccount: User not found for id: ${id}`);
                 return undefined;
             }
-            console.log(`findAccount: Found user for id: ${id}`);
+            logger.info(`findAccount: Found user for id: ${id}`);
 
             // Return the account object in the format oidc-provider expects
             // This object implicitly matches OIDCAccount interface due to the implementation
@@ -43,7 +44,7 @@ class Account {
                 async claims(use: string, scope: string): Promise<AccountClaims> {
                     // 'use' can be 'id_token' or 'userinfo'
                     // 'scope' is a space-separated string of requested scopes
-                    console.log(`Claims requested - use: ${use}, scope: ${scope}, accountId: ${id}`);
+                    logger.info(`Claims requested - use: ${use}, scope: ${scope}, accountId: ${id}`);
                     const scopes = scope ? scope.split(' ') : [];
 
                     // Base claims (always include sub) - initialize with the required type
@@ -68,12 +69,12 @@ class Account {
                     // Add custom claims here if needed, ensuring they don't conflict
                     // with standard claims expected by AccountClaims type if it's strict.
 
-                    console.log('Returning claims:', claims);
+                    logger.info('Returning claims:', claims);
                     return claims; // Return the object typed as AccountClaims
                 },
             };
         } catch (error) {
-            console.error(`Error in findAccount for id ${id}:`, error);
+            logger.error(`Error in findAccount for id ${id}:`, error);
             return undefined;
         }
     }
@@ -87,16 +88,16 @@ class Account {
      */
     static async authenticate(username: string, password: string): Promise<IUser | null> {
         try {
-            console.log(`Attempting authentication for username: ${username}`);
+            logger.info(`Attempting authentication for username: ${username}`);
             const user = await User.findOne({ username: username.toLowerCase() });
 
             if (!user) {
-                console.log(`Authentication failed: User not found - ${username}`);
+                logger.info(`Authentication failed: User not found - ${username}`);
                 return null; // User not found
             }
 
             if (!user.password) {
-                 console.log(`Authentication failed: User has no password set - ${username}`);
+                 logger.info(`Authentication failed: User has no password set - ${username}`);
                  return null; // User exists but has no password (e.g., created via SSO link?)
             }
 
@@ -104,14 +105,14 @@ class Account {
             const isMatch = await bcrypt.compare(password, user.password);
 
             if (isMatch) {
-                console.log(`Authentication successful for user: ${username}`);
+                logger.info(`Authentication successful for user: ${username}`);
                 return user; // Passwords match
             } else {
-                console.log(`Authentication failed: Invalid password for user: ${username}`);
+                logger.info(`Authentication failed: Invalid password for user: ${username}`);
                 return null; // Passwords don't match
             }
         } catch (error) {
-            console.error(`Error during authentication for ${username}:`, error);
+            logger.error(`Error during authentication for ${username}:`, error);
             return null;
         }
     }
