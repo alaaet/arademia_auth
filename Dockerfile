@@ -39,6 +39,8 @@
     # --- OR for Yarn ---
     # RUN yarn install --frozen-lockfile --production
     
+    RUN npm rebuild bcrypt --build-from-source
+    
     # Copy the compiled JavaScript code from the builder stage
     COPY --from=builder /app/dist ./dist
     
