@@ -2,12 +2,8 @@
     FROM node:22-alpine AS builder
     WORKDIR /app
     
-    # Install required build tools for bcrypt and other native modules
-    RUN apk add --no-cache python3 make g++ \
-        && python3 -m ensurepip \
-        && pip3 install --no-cache --upgrade pip setuptools wheel
-    
     # Copy package definition AND lock file
+    # Ensure package-lock.json (for npm) or yarn.lock (for yarn) exists locally
     COPY package.json package-lock.json* ./
     # --- OR for Yarn ---
     # COPY package.json yarn.lock ./
@@ -32,9 +28,6 @@
     ENV ISSUER_URL=https://auth.arademia.com
     WORKDIR /app
     
-    # Install required runtime dependencies for bcrypt and other modules
-    RUN apk add --no-cache python3 make g++
-    
     # Copy package definition AND lock file again for production install
     COPY package.json package-lock.json* ./
     # --- OR for Yarn ---
@@ -46,7 +39,6 @@
     # --- OR for Yarn ---
     # RUN yarn install --frozen-lockfile --production
     
-    # Rebuild bcrypt to ensure compatibility with the runtime environment
     RUN npm rebuild bcrypt --build-from-source
     
     # Copy the compiled JavaScript code from the builder stage
@@ -59,4 +51,3 @@
     
     EXPOSE 5001
     CMD ["node", "dist/server.js"]
-    
