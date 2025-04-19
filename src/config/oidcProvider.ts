@@ -58,7 +58,7 @@ const clients: ClientMetadata[] = [
   {
     client_id: MOODLE_CLIENT_ID,
     client_secret: MOODLE_CLIENT_SECRET,
-    grant_types: ['authorization_code'],
+    grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
     redirect_uris: [MOODLE_CALLBACK_URL],
     token_endpoint_auth_method: 'client_secret_post',
@@ -123,7 +123,7 @@ const configuration: Configuration = {
   pkce: {
     // Explicitly support S256 (used by oidc-client-ts)
     // Setting required: true is recommended for better security
-    required: () => true,
+    required: (ctx, client) => client.clientId !== MOODLE_CLIENT_ID,
     methods: ['S256'],
   },
    // Add TTL configuration for various artifacts (optional but recommended)
@@ -139,6 +139,12 @@ const configuration: Configuration = {
 };
 // (configuration.features as any).sessionManagement = { enabled: true };
 const oidc = new Provider(ISSUER_URL, configuration);
+
+oidc.use((ctx, next) => {
+  console.log('Incoming Request:', ctx.request.method, ctx.request.url);
+  console.log('Headers:', ctx.request.headers);
+  return next();
+});
 
 // Production readiness (proxy handling)
 if (process.env.NODE_ENV === 'production') {
