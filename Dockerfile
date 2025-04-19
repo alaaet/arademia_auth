@@ -3,9 +3,12 @@
     WORKDIR /app
     
     # Install required build tools for bcrypt and other native modules
+    # RUN apk add --no-cache python3 make g++ py3-pip \
+    #     && pip install --no-cache-dir --upgrade pip setuptools wheel
     RUN apk add --no-cache python3 make g++ py3-pip \
-        && pip install --no-cache-dir --upgrade pip setuptools wheel
-    
+    && python3 -m venv /venv \
+    && . /venv/bin/activate \
+    && pip install --no-cache-dir --upgrade pip setuptools wheel
     # Copy package definition AND lock file
     COPY package.json package-lock.json* ./
     # --- OR for Yarn ---
@@ -32,12 +35,7 @@
     WORKDIR /app
     
     # Install required runtime dependencies for bcrypt and other modules
-    # RUN apk add --no-cache python3 make g++ py3-pip
-    RUN apk add --no-cache python3 make g++ py3-pip \
-    && python3 -m venv /venv \
-    && . /venv/bin/activate \
-    && pip install --no-cache-dir --upgrade pip setuptools wheel
-
+    RUN apk add --no-cache python3 make g++ py3-pip
     
     # Copy package definition AND lock file again for production install
     COPY package.json package-lock.json* ./
