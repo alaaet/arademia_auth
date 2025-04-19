@@ -3,9 +3,8 @@
     WORKDIR /app
     
     # Install required build tools for bcrypt and other native modules
-    RUN apk add --no-cache python3 make g++ \
-        && python3 -m ensurepip \
-        && pip3 install --no-cache --upgrade pip setuptools wheel
+    RUN apk add --no-cache python3 make g++ py3-pip \
+        && pip install --no-cache-dir --upgrade pip setuptools wheel
     
     # Copy package definition AND lock file
     COPY package.json package-lock.json* ./
@@ -33,7 +32,7 @@
     WORKDIR /app
     
     # Install required runtime dependencies for bcrypt and other modules
-    RUN apk add --no-cache python3 make g++
+    RUN apk add --no-cache python3 make g++ py3-pip
     
     # Copy package definition AND lock file again for production install
     COPY package.json package-lock.json* ./
