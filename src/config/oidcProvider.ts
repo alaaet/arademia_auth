@@ -93,6 +93,7 @@ const configuration: Configuration = {
     rpInitiatedLogout: { enabled: true },
     // Enable session management feature for logout etc.
     backchannelLogout: { enabled: true },
+    resourceIndicators: { enabled: false },
   },
     // --- JWKS Configuration ---
   // REMOVED the jwks property entirely for development.
