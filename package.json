@@ -26,6 +26,7 @@
     "helmet": "^8.1.0",
     "mongoose": "^8.13.2",
     "oidc-provider": "^8.8.1",
+    "response-time": "^2.3.3",
     "winston": "^3.17.0"
   },
   "devDependencies": {
@@ -38,6 +39,7 @@
     "@types/mongoose": "^5.11.96",
     "@types/node": "^22.14.1",
     "@types/oidc-provider": "^8.8.1",
+    "@types/response-time": "^2.3.8",
     "nodemon": "^3.1.9",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
