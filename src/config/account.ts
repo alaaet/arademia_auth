@@ -29,7 +29,7 @@ class Account {
                  return undefined;
             }
 
-            const user = await User.findById(id).lean(); // Use lean() for plain JS object
+            const user:IUser | null = await User.findById(id).lean(); // Use lean() for plain JS object
             if (!user) {
                 logger.info(`findAccount: User not found for id: ${id}`);
                 return undefined;
@@ -54,8 +54,10 @@ class Account {
                     // Note: Only add claims that are part of the AccountClaims type definition
                     // or extend the type if necessary for custom claims.
                     if (scopes.includes('profile')) {
-                        if (user.fullname) claims.name = user.fullname;
+                        if (user.firstName) claims.given_name = user.firstName; // Map firstName
+                        if (user.lastName) claims.family_name = user.lastName; // Map lastName
                         if (user.username) claims.preferred_username = user.username;
+                        
                         // Add other standard profile claims if available in your IUser model
                         // claims.given_name = user.firstName;
                         // claims.family_name = user.lastName;

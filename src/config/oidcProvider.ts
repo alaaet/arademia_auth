@@ -82,7 +82,7 @@ const configuration: Configuration = {
   scopes: ['openid', 'profile', 'email', 'offline_access'],
   claims: {
       openid: ['sub'],
-      profile: ['name', 'family_name', 'given_name', 'preferred_username'],
+      profile: ['given_name', 'family_name', 'preferred_username'], // Removed 'name'
       email: ['email', 'email_verified'],
    },
   features: {

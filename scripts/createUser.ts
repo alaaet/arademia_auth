@@ -14,11 +14,18 @@ const createUser = async () => {
   }
   await connectDB(); // Connect to the database
 
-  // --- Define Test User ---
-  const username = 'testuser';
+  // // --- Define Test User ---
+  const username = 'testuser2';
+  const given_name = 'Test';
+  const family_name = 'User';
   const password = 'password123'; // Plain text password
-  const email = 'test@example.com';
-  const fullname = 'Test User';
+  const email = 'testuser2@example.com';
+  // // --- ---
+  // --- Define Test User ---
+  // const username = 'ukmqd';
+  // const password = 'password123'; // Plain text password
+  // const email = 'admin@arademia.com';
+  // const fullname = 'Alaa Abuiteiwi';
   // --- ---
 
   try {
@@ -39,7 +46,11 @@ const createUser = async () => {
           username: username,
           password: password, // Provide plain text password here
           email: email,
-          fullname: fullname
+          given_name,
+          family_name,
+          role: 'admin', // Set role as needed (e.g., 'admin', 'student', etc.)
+          isValidated: true, // Set to true for admin or as needed
+          isProfileComplete: true
       });
       await user.save(); // Pre-save hook will hash the password
       logger.info(`User ${username} created successfully.`);

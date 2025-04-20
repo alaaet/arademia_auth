@@ -3,11 +3,12 @@ import User, { IUser, UserRole } from '../models/User'; // Adjust path if needed
 import logger from '../config/middlewares/logger';
 
 export const registerUser = async (req: Request, res: Response, next: NextFunction) => {
-    const { username, email, password, fullname, role } = req.body;
+    const { username, email, password, firstName, lastName, role } = req.body; // Destructure new fields
+
 
     // --- Basic Input Validation ---
-    if (!username || !email || !password || !role) {
-        return res.status(400).json({ message: 'Username, email, password, and role are required.' });
+    if (!username || !email || !password || !role || !lastName) {
+        return res.status(400).json({ message: 'Username, email, password, lastName, and role are required.' });
     }
     // Ensure role is one of the allowed types for self-registration
     if (!['student', 'teacher'].includes(role)) {
@@ -37,7 +38,8 @@ export const registerUser = async (req: Request, res: Response, next: NextFuncti
             username: username.toLowerCase(),
             email: email.toLowerCase(),
             password: password, // Pass plain text password here
-            fullname: fullname,
+            firstName: firstName ? firstName : '', // Optional field
+            lastName: lastName,
             role: role as UserRole,
             // Auto-validate students, teachers require admin validation later
             isValidated: role === 'student',

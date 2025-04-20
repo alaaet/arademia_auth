@@ -11,7 +11,8 @@ export interface IUser extends Document {
   username: string;
   password?: string; // Make required during registration logic, store hash
   email: string;
-  fullname?: string;
+  firstName?: string; // Changed from fullname
+  lastName: string;  // Changed from fullname, make required
   role: UserRole; // Added: Role of the user
   isValidated: boolean; // Added: Primarily for teacher validation by admin
   isProfileComplete: boolean; // Added: Tracks if extended profile (on arademia_api) is filled
@@ -24,7 +25,8 @@ const UserSchema: Schema = new Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   password: { type: String, required: true }, // Password is required for registration
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-  fullname: { type: String },
+  firstName: { type: String, trim: true },
+  lastName: { type: String, required: true, trim: true },
   // Add new fields to the schema
   role: {
       type: String,
