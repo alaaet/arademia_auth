@@ -111,7 +111,7 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
             });
             return;
         }
-
+        logger.info(`[Interaction] Loaded interaction information, the current prompt is: ${JSON.stringify(details.prompt) || details.prompt}`);
         // Handle different interaction prompts
         switch (details.prompt?.name) {
             case 'login':
@@ -219,8 +219,8 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
             interactionId: uid
         });
 
-        const allCookies = req.cookies;
-        logger.info('All Cookies:', allCookies);
+        // const allCookies = req.cookies;
+        // logger.info('All Cookies:', allCookies);
 
         const result = {
             login: {
@@ -286,7 +286,7 @@ router.post('/:uid/confirm', setNoCache, async (req: Request, res: Response, nex
                 accountId: accountId,
                 clientId: params.client_id as string,
             });
-            
+
             // Initialize the grant with required properties
             if (details.missingOIDCScope) {
                 const scopesToAdd = (details.missingOIDCScope as string[]).join(' ');

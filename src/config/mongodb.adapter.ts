@@ -41,20 +41,40 @@ class MongoDbAdapter implements Adapter {
         if (expiresIn) {
             expiresAt = new Date(Date.now() + expiresIn * 1000);
         }
-
-        // Log when we're about to create a new document
-        const existing = await this.collection.findOne({ oidcId: id });
-        if (!existing) {
-            logger.info(`[MongoAdapter:${this.name}] Creating new document in collection: ${this.collection.collectionName}`);
+    
+        const filter = { oidcId: id }; // Use your custom ID field
+        const documentToSet = { ...payload, oidcId: id, ...(expiresAt && { expiresAt }) };
+    
+        // Log based on payload kind if desired
+        if (payload.kind === 'Grant') {
+            logger.info(`[MongoAdapter:upsert:Grant] Attempting to save grant for accountId: ${payload.accountId}, clientId: ${payload.clientId}`);
+            // logger.info(`[MongoAdapter:upsert:Grant] Grant payload:`, payload); // Log payload if needed
+        } else {
+             logger.info(`[MongoAdapter:${this.name}] Upserting document kind: ${payload.kind} with id: ${id}`);
         }
-
-        // Use 'oidcId' field for querying and explicitly set it in the update.
-        // Let MongoDB handle the internal '_id' (ObjectId).
-        await this.collection.updateOne(
-            { oidcId: id }, // Query using the dedicated field
-            { $set: { ...payload, oidcId: id, ...(expiresAt && { expiresAt }) } }, // Set payload, oidcId, expiresAt
-            { upsert: true }
-        );
+    
+        try {
+            const result = await this.collection.updateOne(
+                filter,
+                { $set: documentToSet },
+                { upsert: true }
+            );
+    
+            // Log success confirmation
+            if (payload.kind === 'Grant') {
+                logger.info(`[MongoAdapter:upsert:Grant] MongoDB updateOne completed for id: ${id}`, {
+                    matchedCount: result.matchedCount,
+                    modifiedCount: result.modifiedCount,
+                    upsertedCount: result.upsertedCount,
+                    upsertedId: result.upsertedId
+                });
+            }
+            // **** DO NOT return anything here ****
+    
+        } catch (error) {
+             logger.error(`[MongoAdapter:upsert] Error saving ${payload.kind} with id ${id}:`, error);
+             throw error; // Re-throw error so provider knows it failed
+        }
     }
 
     /**
@@ -62,8 +82,12 @@ class MongoDbAdapter implements Adapter {
      * Returns undefined if expired or already consumed.
      */
     async find(id: string): Promise<AdapterPayload | undefined> {
+        logger.info(`[MongoAdapter:find] Searching for document with oidcId: ${id}`); // Log find attempt
         const result = await this.collection.findOne({ oidcId: id });
-        if (!result) return undefined;
+        if (!result) {
+            logger.warn(`[MongoAdapter:find] Document not found for oidcId: ${id}`); // Log if not found
+            return undefined;
+       }
 
         // Check expiration
         if (result.expiresAt && result.expiresAt < new Date()) {
@@ -80,6 +104,7 @@ class MongoDbAdapter implements Adapter {
         }
 
         const { _id, oidcId, ...payload } = result;
+        logger.info(`[MongoAdapter:find] Found document for oidcId: ${id}`);
         return payload as AdapterPayload;
     }
 
@@ -119,6 +144,7 @@ class MongoDbAdapter implements Adapter {
      * Destroys an OIDC artifact by its provider ID ('oidcId').
      */
     async destroy(id: string): Promise<void> {
+        logger.info(`[MongoAdapter:destroy] Deleting document with oidcId: ${id}`); // ADD LOG
         // Delete using the dedicated 'oidcId' field.
         await this.collection.deleteOne({ oidcId: id });
     }
@@ -147,6 +173,7 @@ class MongoDbAdapter implements Adapter {
      * Marks an OIDC artifact as consumed by setting the 'consumed' timestamp.
      */
     async consume(id: string): Promise<void> {
+        logger.info(`[MongoAdapter:consume] Marking document consumed for oidcId: ${id}`); // ADD LOG
         // Update using the dedicated 'oidcId' field.
         const result = await this.collection.updateOne(
             { oidcId: id },
@@ -154,7 +181,7 @@ class MongoDbAdapter implements Adapter {
             // { $currentDate: { consumed: { $type: 'timestamp' } } }
             { $set: { consumed: Math.floor(Date.now() / 1000) } }
         );
-         // if (result.modifiedCount === 1) { logger.info(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
+         if (result.modifiedCount === 1) { logger.info(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
     }
 }
 

@@ -213,26 +213,14 @@ const configuration: Configuration = {
         IdToken: 60 * 60, // 1 hour
         RefreshToken: 14 * 24 * 60 * 60, // 14 days
         Session: 14 * 24 * 60 * 60, // 14 days
-        Interaction: 2 * 60 * 60, // 2 hours
+        Interaction: 4 * 60 * 60, // 2 hours
     },
     logger: console
 };
 
 
-// (configuration.features as any).sessionManagement = { enabled: true };
-const oidc = new Provider(ISSUER_URL, {
-    ...configuration,
-    // async findAccount(ctx: any, id: string) {
-    //     logger.info('[OIDC] Finding account:', { id, timestamp: new Date().toISOString() });
-    //     return {
-    //         accountId: id,
-    //         async claims() {
-    //             logger.info('[OIDC] Getting claims for account:', { id, timestamp: new Date().toISOString() });
-    //             return { sub: id };
-    //         },
-    //     };
-    // }
-});
+
+const oidc = new Provider(ISSUER_URL,configuration);
 
 // Add request logging middleware
 oidc.use(async (ctx: any, next: () => Promise<void>) => {
@@ -453,48 +441,6 @@ oidc.on('grant.saved', (ctx: KoaContextWithOIDC, grant: any) => {
 if (process.env.NODE_ENV === 'production') {
     oidc.proxy = true;
 }
-
-// Add detailed logging for Google authentication
-const googleAuthLogger = {
-    start: (details: any) => {
-        logger.info('[Google Auth] Starting authentication flow:', {
-            clientId: details.client_id,
-            redirectUri: details.redirect_uri,
-            scope: details.scope,
-            state: details.state,
-            nonce: details.nonce,
-            timestamp: new Date().toISOString()
-        });
-    },
-    redirect: (url: string) => {
-        logger.info('[Google Auth] Redirecting to Google:', { url });
-    },
-    callback: (params: any) => {
-        logger.info('[Google Auth] Received callback from Google:', {
-            code: params.code ? 'present' : 'missing',
-            state: params.state,
-            error: params.error,
-            error_description: params.error_description,
-            timestamp: new Date().toISOString()
-        });
-    },
-    error: (error: any) => {
-        logger.error('[Google Auth] Error during authentication:', {
-            error: error.error,
-            description: error.error_description,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
-        });
-    },
-    success: (tokens: any) => {
-        logger.info('[Google Auth] Authentication successful:', {
-            accessToken: tokens.access_token ? 'present' : 'missing',
-            idToken: tokens.id_token ? 'present' : 'missing',
-            expiresIn: tokens.expires_in,
-            timestamp: new Date().toISOString()
-        });
-    }
-};
 
 // Add interaction creation logging
 oidc.on('interaction.created', (ctx: KoaContextWithOIDC, interaction: any) => {
