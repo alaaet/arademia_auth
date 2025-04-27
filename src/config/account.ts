@@ -70,8 +70,8 @@ class Account {
                     }
                     // Add custom claims here if needed, ensuring they don't conflict
                     // with standard claims expected by AccountClaims type if it's strict.
-
-                    logger.info('Returning claims:', claims);
+                    const claimsStr = JSON.stringify(claims, null, 2); // Pretty print for logging  
+                    logger.info(`Returning claims: ${claimsStr}`); // Log the claims);
                     return claims; // Return the object typed as AccountClaims
                 },
             };

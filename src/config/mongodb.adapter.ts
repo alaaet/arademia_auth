@@ -9,6 +9,7 @@ const getCollection = <T extends MongoDocument = MongoDocument>(name: string): C
         throw new Error('MongoDB connection not established or DB instance not available.');
     }
     const collectionName = name.toLowerCase();
+    logger.info(`[MongoAdapter] Accessing collection: ${collectionName}`);
     // Return collection typed with T
     return db.collection<T>(collectionName);
 };
@@ -39,6 +40,12 @@ class MongoDbAdapter implements Adapter {
         let expiresAt: Date | undefined;
         if (expiresIn) {
             expiresAt = new Date(Date.now() + expiresIn * 1000);
+        }
+
+        // Log when we're about to create a new document
+        const existing = await this.collection.findOne({ oidcId: id });
+        if (!existing) {
+            logger.info(`[MongoAdapter:${this.name}] Creating new document in collection: ${this.collection.collectionName}`);
         }
 
         // Use 'oidcId' field for querying and explicitly set it in the update.

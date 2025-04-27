@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - <%= error %></title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .error-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .error-header {
+            color: #d9534f;
+            margin-bottom: 20px;
+        }
+        .error-description {
+            margin-bottom: 20px;
+        }
+        .error-details {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 3px;
+            border: 1px solid #eee;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #337ab7;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-header">Error: <%= error %></h1>
+        <div class="error-description">
+            <p><%= error_description %></p>
+        </div>
+        <% if (out) { %>
+            <div class="error-details">
+                <%= JSON.stringify(out, null, 2) %>
+            </div>
+        <% } %>
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+</body>
+</html> 

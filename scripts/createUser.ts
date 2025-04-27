@@ -15,11 +15,11 @@ const createUser = async () => {
   await connectDB(); // Connect to the database
 
   // // --- Define Test User ---
-  const username = 'testuser2';
+  const username = 'testuser';
   const given_name = 'Test';
   const family_name = 'User';
   const password = 'password123'; // Plain text password
-  const email = 'testuser2@example.com';
+  const email = 'testuser@example.com';
   // // --- ---
   // --- Define Test User ---
   // const username = 'ukmqd';
@@ -42,12 +42,12 @@ const createUser = async () => {
     } else {
       // Create new user
       logger.info(`Creating new user: ${username}`);
-      user = new User({
+      user = new User ({
           username: username,
           password: password, // Provide plain text password here
           email: email,
-          given_name,
-          family_name,
+          firstName:given_name,
+          lastName: family_name,
           role: 'admin', // Set role as needed (e.g., 'admin', 'student', etc.)
           isValidated: true, // Set to true for admin or as needed
           isProfileComplete: true
