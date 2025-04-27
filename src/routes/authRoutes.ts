@@ -46,13 +46,13 @@ router.get('/status', (req: Request, res: Response) => {
     // Use a check to ensure the method exists before calling
     if (req.isAuthenticated && req.isAuthenticated()) {
         // req.user should also be recognized
-        logger.info(`[Auth Status]: User is authenticated. User ID: ${req.user?._id}`); // Use optional chaining on user
+        logger.debug(`[Auth Status]: User is authenticated. User ID: ${req.user?._id}`); // Use optional chaining on user
         res.status(200).json({
             isAuthenticated: true,
             user: req.user // Send back the user info from req.user
         });
     } else {
-        logger.info('[Auth Status]: User is not authenticated.');
+        logger.debug('[Auth Status]: User is not authenticated.');
         res.status(200).json({ isAuthenticated: false, user: null });
     }
 });
@@ -80,7 +80,7 @@ router.post('/logout', (req: Request, res: Response, next: NextFunction) => {
                 }
                 // Clear the session cookie on the client side
                 const sessionCookieName = process.env.SESSION_NAME || 'connect.sid';
-                logger.info(`[Logout]: Clearing cookie: ${sessionCookieName}`);
+                logger.debug(`[Logout]: Clearing cookie: ${sessionCookieName}`);
                 res.clearCookie(sessionCookieName);
                 // Send success even if session destroy had minor issues, as logout likely worked
                 res.status(200).json({ message: 'Logout successful' });
@@ -95,7 +95,7 @@ router.post('/logout', (req: Request, res: Response, next: NextFunction) => {
                 return next(destroyErr);
             }
             const sessionCookieName = process.env.SESSION_NAME || 'connect.sid';
-            logger.info(`[Logout]: Clearing cookie (fallback): ${sessionCookieName}`);
+            logger.debug(`[Logout]: Clearing cookie (fallback): ${sessionCookieName}`);
             res.clearCookie(sessionCookieName);
             res.status(200).json({ message: 'Logout successful (session destroyed)' });
         });

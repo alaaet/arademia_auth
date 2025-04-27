@@ -5,7 +5,7 @@ import logger from './logger';
 //     const start = process.hrtime();
 //     const { method, originalUrl, headers, body } = req;
 
-//     logger.info(`Request: ${method} ${originalUrl}`, {
+//     logger.debug(`Request: ${method} ${originalUrl}`, {
 //         headers,
 //         body,
 //     });
@@ -14,7 +14,7 @@ import logger from './logger';
 //         const [seconds, nanoseconds] = process.hrtime(start);
 //         const duration = (seconds * 1000) + (nanoseconds / 1000000);
 
-//         logger.info(`Request finished: ${method} ${originalUrl}`, {
+//         logger.debug(`Request finished: ${method} ${originalUrl}`, {
 //             statusCode: res.statusCode,
 //             duration,
 //         });
@@ -39,7 +39,7 @@ export const requestLogger = (req: Request, res: Response, time: number) => {
         request: { ip, body },
       });
     } else {
-      logger.info({
+      logger.debug({
         message: `method=${method} url=${url} status=${status} duration=${time}ms`,
         labels: { origin: "ARADEMIA_AUTH", url: url },
         request: { ip, body },

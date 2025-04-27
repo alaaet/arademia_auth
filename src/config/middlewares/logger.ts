@@ -65,16 +65,16 @@ const logFormat = winston.format.combine(
 // // Add a simple stream object for potential use with middleware like morgan
 // // logger.stream = {
 // //     write: (message: string): void => {
-// //         logger.info(message.trim());
+// //         logger.debug(message.trim());
 // //     },
 // // };
 
-// logger.info(`Logger initialized with level: ${logLevel}`);
+// logger.debug(`Logger initialized with level: ${logLevel}`);
 
 // export default logger;
 
 const centralizedLogger = winston.createLogger({
-    level: 'info',
+    level: 'debug',
     format: winston.format.combine(
         // winston.format.timestamp(),
         // winston.format.json()

@@ -18,26 +18,26 @@ let dbInstance: mongoose.Connection | null = null;
 const connectDB = async (): Promise<void> => {
     // Prevent multiple connection attempts in the same process
     if (dbInstance && dbInstance.readyState === 1) {
-         logger.info(`[database][Worker ${process.pid}]: MongoDB already connected.`);
+         logger.debug(`[database][Worker ${process.pid}]: MongoDB already connected.`);
          return;
     }
     try {
         mongoose.set('strictQuery', false);
         await mongoose.connect(MONGODB_URI);
         dbInstance = mongoose.connection; // Store the connection instance
-        logger.info(`[database]: MongoDB connected successfully on worker ${process.pid}.`);
+        logger.debug(`[database]: MongoDB connected successfully on worker ${process.pid}.`);
 
         // Event listeners for connection health
         dbInstance.on('error', (err) => {
             logger.error(`[database][Worker ${process.pid}]: MongoDB connection error:`, err);
         });
         dbInstance.on('disconnected', () => {
-            logger.info(`[database][Worker ${process.pid}]: MongoDB disconnected.`);
+            logger.debug(`[database][Worker ${process.pid}]: MongoDB disconnected.`);
             dbInstance = null; // Reset instance on disconnect
         });
         // Optional: Listener for reconnected event
         dbInstance.on('reconnected', () => {
-             logger.info(`[database][Worker ${process.pid}]: MongoDB reconnected.`);
+             logger.debug(`[database][Worker ${process.pid}]: MongoDB reconnected.`);
         });
 
 

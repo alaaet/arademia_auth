@@ -9,7 +9,7 @@ const getCollection = <T extends MongoDocument = MongoDocument>(name: string): C
         throw new Error('MongoDB connection not established or DB instance not available.');
     }
     const collectionName = name.toLowerCase();
-    logger.info(`[MongoAdapter] Accessing collection: ${collectionName}`);
+    logger.debug(`[MongoAdapter] Accessing collection: ${collectionName}`);
     // Return collection typed with T
     return db.collection<T>(collectionName);
 };
@@ -47,10 +47,10 @@ class MongoDbAdapter implements Adapter {
     
         // Log based on payload kind if desired
         if (payload.kind === 'Grant') {
-            logger.info(`[MongoAdapter:upsert:Grant] Attempting to save grant for accountId: ${payload.accountId}, clientId: ${payload.clientId}`);
-            // logger.info(`[MongoAdapter:upsert:Grant] Grant payload:`, payload); // Log payload if needed
+            logger.debug(`[MongoAdapter:upsert:Grant] Attempting to save grant for accountId: ${payload.accountId}, clientId: ${payload.clientId}`);
+            // logger.debug(`[MongoAdapter:upsert:Grant] Grant payload:`, payload); // Log payload if needed
         } else {
-             logger.info(`[MongoAdapter:${this.name}] Upserting document kind: ${payload.kind} with id: ${id}`);
+             logger.debug(`[MongoAdapter:${this.name}] Upserting document kind: ${payload.kind} with id: ${id}`);
         }
     
         try {
@@ -62,7 +62,7 @@ class MongoDbAdapter implements Adapter {
     
             // Log success confirmation
             if (payload.kind === 'Grant') {
-                logger.info(`[MongoAdapter:upsert:Grant] MongoDB updateOne completed for id: ${id}`, {
+                logger.debug(`[MongoAdapter:upsert:Grant] MongoDB updateOne completed for id: ${id}`, {
                     matchedCount: result.matchedCount,
                     modifiedCount: result.modifiedCount,
                     upsertedCount: result.upsertedCount,
@@ -82,7 +82,7 @@ class MongoDbAdapter implements Adapter {
      * Returns undefined if expired or already consumed.
      */
     async find(id: string): Promise<AdapterPayload | undefined> {
-        logger.info(`[MongoAdapter:find] Searching for document with oidcId: ${id}`); // Log find attempt
+        logger.debug(`[MongoAdapter:find] Searching for document with oidcId: ${id}`); // Log find attempt
         const result = await this.collection.findOne({ oidcId: id });
         if (!result) {
             logger.warn(`[MongoAdapter:find] Document not found for oidcId: ${id}`); // Log if not found
@@ -97,14 +97,14 @@ class MongoDbAdapter implements Adapter {
 
         // *** ADDED CHECK: Return undefined if already consumed ***
         if (result.consumed) {
-            logger.info(`[MongoAdapter:${this.name}] Find - Already Consumed: ${id}`);
+            logger.debug(`[MongoAdapter:${this.name}] Find - Already Consumed: ${id}`);
             // Optionally delete consumed codes after a short grace period? For now, just don't return it.
             // await this.destroy(id);
             return undefined;
         }
 
         const { _id, oidcId, ...payload } = result;
-        logger.info(`[MongoAdapter:find] Found document for oidcId: ${id}`);
+        logger.debug(`[MongoAdapter:find] Found document for oidcId: ${id}`);
         return payload as AdapterPayload;
     }
 
@@ -117,7 +117,7 @@ class MongoDbAdapter implements Adapter {
          }
          // *** ADDED CHECK: Return undefined if already consumed (relevant for Session?) ***
          if (result.consumed) {
-             logger.info(`[MongoAdapter:${this.name}] FindByUid - Already Consumed: ${uid}`);
+             logger.debug(`[MongoAdapter:${this.name}] FindByUid - Already Consumed: ${uid}`);
              return undefined;
          }
          const { _id, oidcId, ...payload } = result;
@@ -133,7 +133,7 @@ class MongoDbAdapter implements Adapter {
          }
           // *** ADDED CHECK: Return undefined if already consumed (relevant for DeviceCode?) ***
          if (result.consumed) {
-             logger.info(`[MongoAdapter:${this.name}] FindByUserCode - Already Consumed: ${userCode}`);
+             logger.debug(`[MongoAdapter:${this.name}] FindByUserCode - Already Consumed: ${userCode}`);
              return undefined;
          }
          const { _id, oidcId, ...payload } = result;
@@ -144,7 +144,7 @@ class MongoDbAdapter implements Adapter {
      * Destroys an OIDC artifact by its provider ID ('oidcId').
      */
     async destroy(id: string): Promise<void> {
-        logger.info(`[MongoAdapter:destroy] Deleting document with oidcId: ${id}`); // ADD LOG
+        logger.debug(`[MongoAdapter:destroy] Deleting document with oidcId: ${id}`); // ADD LOG
         // Delete using the dedicated 'oidcId' field.
         await this.collection.deleteOne({ oidcId: id });
     }
@@ -155,14 +155,14 @@ class MongoDbAdapter implements Adapter {
     async revokeByGrantId(grantId: string): Promise<void> {
         // This logic remains the same - delete based on the 'grantId' field.
         const modelsToRevoke = ['AccessToken', 'AuthorizationCode', 'RefreshToken', 'DeviceCode', 'BackchannelAuthenticationRequest'];
-        logger.info(`[MongoAdapter] Revoking by Grant ID: ${grantId}`);
+        logger.debug(`[MongoAdapter] Revoking by Grant ID: ${grantId}`);
         for (const modelName of modelsToRevoke) {
              try {
                  // Need to get collection using lowercase name convention
                  const coll = getCollection(`${modelName.toLowerCase()}s`);
                  const result = await coll.deleteMany({ grantId });
                  if (result.deletedCount > 0) {
-                     logger.info(`[MongoAdapter:${modelName}] Revoked ${result.deletedCount} items for Grant ID: ${grantId}`);
+                     logger.debug(`[MongoAdapter:${modelName}] Revoked ${result.deletedCount} items for Grant ID: ${grantId}`);
                  }
              } catch (error) {
                   logger.error(`[MongoAdapter] Error revoking ${modelName} for grantId ${grantId}:`, error);
@@ -173,7 +173,7 @@ class MongoDbAdapter implements Adapter {
      * Marks an OIDC artifact as consumed by setting the 'consumed' timestamp.
      */
     async consume(id: string): Promise<void> {
-        logger.info(`[MongoAdapter:consume] Marking document consumed for oidcId: ${id}`); // ADD LOG
+        logger.debug(`[MongoAdapter:consume] Marking document consumed for oidcId: ${id}`); // ADD LOG
         // Update using the dedicated 'oidcId' field.
         const result = await this.collection.updateOne(
             { oidcId: id },
@@ -181,7 +181,7 @@ class MongoDbAdapter implements Adapter {
             // { $currentDate: { consumed: { $type: 'timestamp' } } }
             { $set: { consumed: Math.floor(Date.now() / 1000) } }
         );
-         if (result.modifiedCount === 1) { logger.info(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
+         if (result.modifiedCount === 1) { logger.debug(`[MongoAdapter:${this.name}] Consumed ID: ${id}`); }
     }
 }
 

@@ -35,7 +35,7 @@ const router = express.Router();
 router.get('/google', async (req: Request, res: Response, next: NextFunction) => {
     const requestId = crypto.randomUUID();
     const startTime = Date.now();
-    logger.info(`[Google Auth Start] Request received (${requestId})`, {
+    logger.debug(`[Google Auth Start] Request received (${requestId})`, {
         sessionId: req.sessionID,
         hasSession: !!req.session,
         timestamp: new Date().toISOString()
@@ -44,14 +44,14 @@ router.get('/google', async (req: Request, res: Response, next: NextFunction) =>
     try {
         // 1. Get interaction details from oidc-provider
         // This establishes the interaction context within the current request/session
-        logger.info(`[Google Auth Start] Cookies received: ${JSON.stringify(req.cookies, null, 2)}`);
+        logger.debug(`[Google Auth Start] Cookies received: ${JSON.stringify(req.cookies, null, 2)}`);
         const interactionDetails = await oidcProvider.interactionDetails(req, res);
         const { uid, prompt, params, session: oidcSessionInfo, exp } = interactionDetails;
 
         const now = Math.floor(Date.now() / 1000);
         const timeRemaining = exp ? exp - now : 'unknown';
 
-        logger.info(`[Google Auth Start] Interaction details obtained (${requestId})`, {
+        logger.debug(`[Google Auth Start] Interaction details obtained (${requestId})`, {
             uid,
             prompt: prompt?.name,
             params,
@@ -90,7 +90,7 @@ router.get('/google', async (req: Request, res: Response, next: NextFunction) =>
                     logger.error(`[Google Auth Start] Failed to save session before redirect (${requestId})`, { error: err });
                     reject(new Error('Failed to save session'));
                 } else {
-                    logger.info(`[Google Auth Start] Session saved,interaction UID ${uid} stored (${requestId})`, {
+                    logger.debug(`[Google Auth Start] Session saved,interaction UID ${uid} stored (${requestId})`, {
                         sessionId: req.sessionID,
                         sessionExpiresAt: req.session.cookie?.expires?.toISOString(),
                     });
@@ -111,7 +111,7 @@ router.get('/google', async (req: Request, res: Response, next: NextFunction) =>
             prompt: 'consent' // Optional: forces consent screen
         }).toString()}`;
 
-        logger.info(`[Google Auth Start] Redirecting to Google (${requestId})`, {
+        logger.debug(`[Google Auth Start] Redirecting to Google (${requestId})`, {
             authUrl: googleAuthUrl,
             interactionUid: uid,
             stateParam: uid,
@@ -144,7 +144,7 @@ router.get('/google', async (req: Request, res: Response, next: NextFunction) =>
                         authUrl.searchParams.append(key, String(value));
                     }
                 });
-                logger.info(`[Google Auth Start] Redirecting to restart original OIDC auth flow (${requestId})`, {
+                logger.debug(`[Google Auth Start] Redirecting to restart original OIDC auth flow (${requestId})`, {
                     authUrl: authUrl.toString(),
                     timestamp: new Date().toISOString()
                 });
@@ -164,7 +164,7 @@ router.get('/google', async (req: Request, res: Response, next: NextFunction) =>
 router.get('/google/callback', async (req: Request, res: Response, next: NextFunction) => {
     const requestId = crypto.randomUUID();
     const startTime = Date.now();
-    logger.info(`[Google Callback] Request received (${requestId})`, {
+    logger.debug(`[Google Callback] Request received (${requestId})`, {
         query: req.query,
         sessionId: req.sessionID,
         hasSession: !!req.session,
@@ -205,7 +205,7 @@ router.get('/google/callback', async (req: Request, res: Response, next: NextFun
             throw new Error('Invalid state parameter. Possible CSRF attack or corrupted session.');
         }
 
-        logger.info(`[Google Callback] State verified successfully (${requestId})`, { interactionUid: expectedUid });
+        logger.debug(`[Google Callback] State verified successfully (${requestId})`, { interactionUid: expectedUid });
 
         // Clean up the UID from the session now that we've used it
         delete req.session.pendingInteractionUid;
@@ -230,7 +230,7 @@ router.get('/google/callback', async (req: Request, res: Response, next: NextFun
             throw new Error('Failed to obtain access token from Google');
         }
 
-        logger.info(`[Google Callback] Received tokens from Google (${requestId})`, {
+        logger.debug(`[Google Callback] Received tokens from Google (${requestId})`, {
             interactionUid: expectedUid,
             hasAccessToken: !!access_token,
             hasIdToken: !!id_token,
@@ -244,7 +244,7 @@ router.get('/google/callback', async (req: Request, res: Response, next: NextFun
         });
 
         const googleUserInfo = userInfoResponse.data;
-        logger.info(`[Google Callback] Retrieved user info from Google (${requestId})`, {
+        logger.debug(`[Google Callback] Retrieved user info from Google (${requestId})`, {
             interactionUid: expectedUid,
             googleUserId: googleUserInfo.id,
             email: googleUserInfo.email,
@@ -279,7 +279,7 @@ router.get('/google/callback', async (req: Request, res: Response, next: NextFun
             throw new Error('Invalid user object or missing _id');
         }
         const accountId = user._id.toString();
-        logger.info(`[Google Callback] Found local user mapping (${requestId})`, {
+        logger.debug(`[Google Callback] Found local user mapping (${requestId})`, {
             interactionUid: expectedUid,
             accountId: accountId,
             googleUserId: googleUserInfo.id
@@ -299,18 +299,18 @@ router.get('/google/callback', async (req: Request, res: Response, next: NextFun
             // consent: {}, // Add consent if needed/prompted for scopes
         };
 
-        logger.info(`[Google Callback] Prepared result for oidc-provider (${requestId})`, {
+        logger.debug(`[Google Callback] Prepared result for oidc-provider (${requestId})`, {
             interactionUid: expectedUid,
             result: JSON.stringify(result), // Log result carefully, may contain sensitive info indirectly
             timestamp: new Date().toISOString()
         });
 
         const interaction = await oidcProvider.Interaction.find(expectedUid);
-        logger.info(`[Google Callback] Interaction details JUST BEFORE interactionFinished:${JSON.stringify(interaction)}`);
+        logger.debug(`[Google Callback] Interaction details JUST BEFORE interactionFinished:${JSON.stringify(interaction)}`);
 
         await oidcProvider.interactionFinished(req, res, result);
 
-        logger.info(`[Google Callback] OIDC interactionFinished successfully called (${requestId})`, {
+        logger.debug(`[Google Callback] OIDC interactionFinished successfully called (${requestId})`, {
             interactionUid: expectedUid,
             accountId: accountId,
             durationMs: Date.now() - startTime,

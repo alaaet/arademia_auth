@@ -37,7 +37,7 @@ const setNoCache = (req: Request, res: Response, next: NextFunction) => {
 // Main interaction route (handles GET requests)
 router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        logger.info('[Interaction] Starting interaction flow:', {
+        logger.debug('[Interaction] Starting interaction flow:', {
             uid: req.params.uid,
             sessionId: req.sessionID,
             hasSession: !!req.session
@@ -45,7 +45,7 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
 
         // Get interaction details
         const details = await oidcProvider.interactionDetails(req, res);
-        logger.info('[Interaction] Got interaction details:', {
+        logger.debug('[Interaction] Got interaction details:', {
             uid: details.uid,
             prompt: details.prompt?.name,
             params: details.params,
@@ -54,7 +54,7 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
 
         // Store interaction details in session
         req.session.interactionDetails = details;
-        logger.info('[Interaction] Stored interaction details in session');
+        logger.debug('[Interaction] Stored interaction details in session');
 
         // Check if the interaction exists and is valid
         const interaction = await oidcProvider.Interaction.find(details.uid);
@@ -79,7 +79,7 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
 
             // If we have original auth params, restart the flow
             if (req.session.originalAuthParams) {
-                logger.info('[Interaction] Restarting auth flow with original parameters');
+                logger.debug('[Interaction] Restarting auth flow with original parameters');
                 const authUrl = new URL('/auth', process.env.ISSUER_URL || 'http://localhost:5001');
                 Object.entries(req.session.originalAuthParams).forEach(([key, value]) => {
                     authUrl.searchParams.append(key, value as string);
@@ -111,11 +111,11 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
             });
             return;
         }
-        logger.info(`[Interaction] Loaded interaction information, the current prompt is: ${JSON.stringify(details.prompt) || details.prompt}`);
+        logger.debug(`[Interaction] Loaded interaction information, the current prompt is: ${JSON.stringify(details.prompt) || details.prompt}`);
         // Handle different interaction prompts
         switch (details.prompt?.name) {
             case 'login':
-                logger.info('[Interaction] Rendering login view');
+                logger.debug('[Interaction] Rendering login view');
                 res.render('login', {
                     uid: details.uid,
                     details: details.prompt.details,
@@ -127,7 +127,7 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
                 return;
 
             case 'consent':
-                logger.info('[Interaction] Rendering consent view');
+                logger.debug('[Interaction] Rendering consent view');
                 // Extract scopes from the interaction details
                 const scopeParam = details.params.scope as string | undefined;
                 const scopes = scopeParam ? scopeParam.split(' ') : [];
@@ -160,7 +160,7 @@ router.get('/:uid', setNoCache, async (req: Request, res: Response, next: NextFu
 // Handle Login Form Submission (POST)
 router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        logger.info('[Login] Starting login process:', {
+        logger.debug('[Login] Starting login process:', {
             uid: req.params.uid,
             sessionId: req.sessionID,
             hasSession: !!req.session
@@ -170,15 +170,15 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
         let interactionDetails;
         if (req.session.interactionDetails) {
             interactionDetails = req.session.interactionDetails;
-            logger.info('[Login] Using interaction details from session');
+            logger.debug('[Login] Using interaction details from session');
         } else {
             interactionDetails = await oidcProvider.interactionDetails(req, res);
-            logger.info('[Login] Got fresh interaction details from provider');
+            logger.debug('[Login] Got fresh interaction details from provider');
         }
 
         const { uid, prompt, params, session } = interactionDetails;
 
-        logger.info('[Login] Interaction details:', {
+        logger.debug('[Login] Interaction details:', {
             uid,
             prompt: prompt.name,
             params,
@@ -213,14 +213,14 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
 
         // If authentication succeeds, prepare the result for interactionFinished
         const accountIdString = (account._id as ObjectId).toString();
-        logger.info('[Login] Authentication successful:', {
+        logger.debug('[Login] Authentication successful:', {
             username,
             accountId: accountIdString,
             interactionId: uid
         });
 
         // const allCookies = req.cookies;
-        // logger.info('All Cookies:', allCookies);
+        // logger.debug('All Cookies:', allCookies);
 
         const result = {
             login: {
@@ -230,12 +230,12 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
             },
         };
 
-        logger.info('[Login] Completing interaction with result:', result);
+        logger.debug('[Login] Completing interaction with result:', result);
 
         // Complete the interaction
         await oidcProvider.interactionFinished(req, res, result, { mergeWithLastSubmission: true });
 
-        logger.info('[Login] Interaction completed successfully');
+        logger.debug('[Login] Interaction completed successfully');
 
     } catch (err) {
         logger.error('[Login] Error during login:', {
@@ -248,13 +248,13 @@ router.post('/:uid/login', setNoCache, async (req: Request, res: Response, next:
 
 // Handle Consent Form Submission (POST)
 router.post('/:uid/confirm', setNoCache, async (req: Request, res: Response, next: NextFunction) => {
-    logger.info(`[Interaction /confirm POST] Received consent confirmation for UID: ${req.params.uid}`);
+    logger.debug(`[Interaction /confirm POST] Received consent confirmation for UID: ${req.params.uid}`);
     try {
         // Get interaction details
-        logger.info('[Interaction /confirm POST] Getting interaction details...');
+        logger.debug('[Interaction /confirm POST] Getting interaction details...');
         const interactionDetails = await oidcProvider.interactionDetails(req, res);
         const { prompt: { name, details }, params, session, grantId: existingGrantId } = interactionDetails;
-        logger.info(`[Interaction /confirm POST] Details retrieved. Prompt: ${name}, Has Session: ${!!session}, Has GrantId: ${!!existingGrantId}`);
+        logger.debug(`[Interaction /confirm POST] Details retrieved. Prompt: ${name}, Has Session: ${!!session}, Has GrantId: ${!!existingGrantId}`);
 
         // Ensure this interaction is waiting for consent
         if (name !== 'consent') {
@@ -264,24 +264,24 @@ router.post('/:uid/confirm', setNoCache, async (req: Request, res: Response, nex
 
         // Ensure accountId is present (should be after login)
         const accountId = session?.accountId || details.accountId as string;
-        logger.info(`[Interaction /confirm POST] Account ID: ${accountId}`);
+        logger.debug(`[Interaction /confirm POST] Account ID: ${accountId}`);
         if (!accountId) {
             logger.error('[Interaction /confirm POST] Error: Account ID missing when trying to confirm consent.');
             return next(new Error('Cannot confirm consent without a logged-in user session.'));
         }
-        logger.info(`[Interaction /confirm POST] Account ID found: ${accountId}`);
+        logger.debug(`[Interaction /confirm POST] Account ID found: ${accountId}`);
 
         let grant;
 
         // Find or create the grant object associated with this interaction
-        logger.info(`[Interaction /confirm POST] Looking for existing grant with ID: ${existingGrantId}`);
+        logger.debug(`[Interaction /confirm POST] Looking for existing grant with ID: ${existingGrantId}`);
         if (existingGrantId) {
             grant = await oidcProvider.Grant.find(existingGrantId);
-            logger.info(`[Interaction /confirm POST] Existing grant ${existingGrantId ? 'found' : 'not found'}.`);
+            logger.debug(`[Interaction /confirm POST] Existing grant ${existingGrantId ? 'found' : 'not found'}.`);
         }
 
         if (!grant) {
-            logger.info(`[Interaction /confirm POST] Creating new grant for account ${accountId} and client ${params.client_id}`);
+            logger.debug(`[Interaction /confirm POST] Creating new grant for account ${accountId} and client ${params.client_id}`);
             grant = new oidcProvider.Grant({
                 accountId: accountId,
                 clientId: params.client_id as string,
@@ -290,26 +290,26 @@ router.post('/:uid/confirm', setNoCache, async (req: Request, res: Response, nex
             // Initialize the grant with required properties
             if (details.missingOIDCScope) {
                 const scopesToAdd = (details.missingOIDCScope as string[]).join(' ');
-                logger.info(`[Interaction /confirm POST] Adding OIDC Scopes: ${scopesToAdd}`);
+                logger.debug(`[Interaction /confirm POST] Adding OIDC Scopes: ${scopesToAdd}`);
                 grant.addOIDCScope(scopesToAdd);
             }
         }
 
         // Save the grant to the adapter
-        logger.info('[Interaction /confirm POST] Saving grant...');
+        logger.debug('[Interaction /confirm POST] Saving grant...');
         const savedGrantId = await grant.save();
         if (!savedGrantId) {
             throw new Error('Failed to save grant');
         }
-        logger.info(`[Interaction /confirm POST] Grant saved successfully. Grant ID: ${savedGrantId}`);
+        logger.debug(`[Interaction /confirm POST] Grant saved successfully. Grant ID: ${savedGrantId}`);
 
         // Prepare the result for interactionFinished
         const consentResult = { consent: { grantId: savedGrantId } };
-        logger.info('[Interaction /confirm POST] Calling interactionFinished...');
+        logger.debug('[Interaction /confirm POST] Calling interactionFinished...');
 
         // Complete the interaction
         await oidcProvider.interactionFinished(req, res, consentResult, { mergeWithLastSubmission: true });
-        logger.info('[Interaction /confirm POST] Interaction completed successfully');
+        logger.debug('[Interaction /confirm POST] Interaction completed successfully');
 
     } catch (err) {
         logger.error('[Interaction /confirm POST] Error caught:', {

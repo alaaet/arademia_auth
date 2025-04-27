@@ -30,31 +30,31 @@ const numCPUs = process.env.WORKERS ? parseInt(process.env.WORKERS, 10) : os.cpu
 const activeWorkers = new Set<number>(); // Track active workers
 
 if (cluster.isPrimary) {
-    logger.info(`[Auth Server]: Primary process ${process.pid} is running`);
+    logger.debug(`[Auth Server]: Primary process ${process.pid} is running`);
     const workersToFork = Math.min(numCPUs, os.cpus().length);
-    logger.info(`[Auth Server]: Forking ${workersToFork} workers...`);
+    logger.debug(`[Auth Server]: Forking ${workersToFork} workers...`);
     for (let i = 0; i < workersToFork; i++) cluster.fork();
 
     cluster.on('online', (worker) => {
         if (worker?.process?.pid) activeWorkers.add(worker.process.pid);
-        logger.info(`[Auth Server]: Worker ${worker.process.pid} is online`);
+        logger.debug(`[Auth Server]: Worker ${worker.process.pid} is online`);
     });
 
     cluster.on('exit', (worker, code, signal) => {
         if (worker?.process?.pid) activeWorkers.delete(worker.process.pid);
         logger.error(`[Auth Server]: Worker ${worker.process.pid} exited with code ${code} and signal ${signal}`);
         if (code !== 0 && !worker.exitedAfterDisconnect) {
-            logger.info('[Auth Server]: Forking new worker...');
+            logger.debug('[Auth Server]: Forking new worker...');
             cluster.fork();
         }
     });
 
     const primaryShutdown = (signal: string) => {
-        logger.info(`[Primary]: ${signal} received. Shutting down workers.`);
+        logger.debug(`[Primary]: ${signal} received. Shutting down workers.`);
         for (const id in cluster.workers) {
             cluster.workers[id]?.kill();
         }
-        logger.info(`Active workers on exit: ${[...activeWorkers]}`);
+        logger.debug(`Active workers on exit: ${[...activeWorkers]}`);
         process.exit(0);
     };
 
@@ -183,7 +183,7 @@ if (cluster.isPrimary) {
 
     app.get('/', (req: Request, res: Response) => {
         // Avoid logging sensitive session info here if possible
-        logger.info(`[Auth Worker ${process.pid}] GET / request received`);
+        logger.debug(`[Auth Worker ${process.pid}] GET / request received`);
         res.status(200).json({ message: `Arademia Auth Server Worker ${process.pid} is running.` });
     });
 
@@ -231,7 +231,7 @@ if (cluster.isPrimary) {
 
     // --- Server Start and Graceful Shutdown ---
     const server = app.listen(PORT, () => {
-        logger.info(`[Auth Server]: Worker ${process.pid} started. Listening on port ${PORT}. Frontend URL: ${frontendUrl}`);
+        logger.debug(`[Auth Server]: Worker ${process.pid} started. Listening on port ${PORT}. Frontend URL: ${frontendUrl}`);
     });
 
     // Handle unhandled promise rejections
@@ -251,7 +251,7 @@ if (cluster.isPrimary) {
 
 
     const shutdown = (signal: string) => {
-        logger.info(`[Auth Worker ${process.pid}]: ${signal} signal received. Starting graceful shutdown.`);
+        logger.debug(`[Auth Worker ${process.pid}]: ${signal} signal received. Starting graceful shutdown.`);
         const shutdownTimer = setTimeout(() => {
             logger.warn(`[Auth Worker ${process.pid}]: Forced shutdown after timeout.`);
             process.exit(1);
@@ -264,13 +264,13 @@ if (cluster.isPrimary) {
                 process.exit(1);
                 return;
             }
-            logger.info(`[Auth Worker ${process.pid}]: HTTP server closed.`);
+            logger.debug(`[Auth Worker ${process.pid}]: HTTP server closed.`);
             mongoose.connection
                 .close(false) // Pass false to allow existing operations to finish if possible
                 .then(() => {
-                    logger.info(`[Auth Worker ${process.pid}]: MongoDB connection closed.`);
+                    logger.debug(`[Auth Worker ${process.pid}]: MongoDB connection closed.`);
                     clearTimeout(shutdownTimer);
-                    logger.info(`[Auth Worker ${process.pid}]: Exiting gracefully.`);
+                    logger.debug(`[Auth Worker ${process.pid}]: Exiting gracefully.`);
                     process.exit(0);
                 })
                 .catch((mongoErr) => {

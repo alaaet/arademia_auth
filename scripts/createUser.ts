@@ -29,19 +29,19 @@ const createUser = async () => {
   // --- ---
 
   try {
-    logger.info(`Checking for existing user: ${username}`);
+    logger.debug(`Checking for existing user: ${username}`);
     let user = await User.findOne({ username: username.toLowerCase() });
 
     if (user) {
-      logger.info(`User ${username} already exists.`);
+      logger.debug(`User ${username} already exists.`);
       // Optional: Update existing user's password if needed
-      // logger.info(`Updating password for ${username}...`);
+      // logger.debug(`Updating password for ${username}...`);
       // user.password = password; // Set plain text, pre-save hook will hash it
       // await user.save();
-      // logger.info(`Password updated for ${username}.`);
+      // logger.debug(`Password updated for ${username}.`);
     } else {
       // Create new user
-      logger.info(`Creating new user: ${username}`);
+      logger.debug(`Creating new user: ${username}`);
       user = new User ({
           username: username,
           password: password, // Provide plain text password here
@@ -53,13 +53,13 @@ const createUser = async () => {
           isProfileComplete: true
       });
       await user.save(); // Pre-save hook will hash the password
-      logger.info(`User ${username} created successfully.`);
+      logger.debug(`User ${username} created successfully.`);
     }
   } catch (error) {
     logger.error('Error during create/update user script:', error);
   } finally {
     await mongoose.disconnect();
-    logger.info('Disconnected from DB.');
+    logger.debug('Disconnected from DB.');
   }
 };
 

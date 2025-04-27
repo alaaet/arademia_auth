@@ -18,13 +18,13 @@ const MONGODB_URI = process.env.MONGODB_URI; // Get MongoDB URI for adapter
 // Client 2: arademia_intranet_client
 const INTRANET_URL = process.env.INTRANET_URL;
 const INTRANET_CALLBACK_URL = INTRANET_URL ? `${INTRANET_URL}/auth/callback` : '';
-logger.info(`INTRANET_CALLBACK_URL: ${INTRANET_CALLBACK_URL}`);
+logger.debug(`INTRANET_CALLBACK_URL: ${INTRANET_CALLBACK_URL}`);
 const INTRANET_CLIENT_ID = process.env.INTRANET_CLIENT_ID;
-logger.info(`INTRANET_CLIENT_ID: ${INTRANET_CLIENT_ID}`);
+logger.debug(`INTRANET_CLIENT_ID: ${INTRANET_CLIENT_ID}`);
 const INTRANET_CLIENT_SECRET = process.env.INTRANET_CLIENT_SECRET;
-logger.info(`INTRANET_CLIENT_SECRET: ${INTRANET_CLIENT_SECRET}`);
+logger.debug(`INTRANET_CLIENT_SECRET: ${INTRANET_CLIENT_SECRET}`);
 const INTRANET_LOGOUT_CALLBACK_URL = process.env.INTRANET_LOGOUT_CALLBACK_URL || `${INTRANET_URL}/auth/logout`;
-logger.info(`INTRANET_LOGOUT_CALLBACK_URL: ${INTRANET_LOGOUT_CALLBACK_URL}`);
+logger.debug(`INTRANET_LOGOUT_CALLBACK_URL: ${INTRANET_LOGOUT_CALLBACK_URL}`);
 // Client 3: moodle_oidc_client
 const MOODLE_CALLBACK_URL = process.env.MOODLE_CALLBACK_URL;
 const MOODLE_CLIENT_ID = process.env.MOODLE_CLIENT_ID;
@@ -84,7 +84,7 @@ const renderError = async (ctx: KoaContextWithOIDC, out: ErrorOut, error: Error)
             Object.entries(req.session.originalAuthParams).forEach(([key, value]) => {
                 authUrl.searchParams.append(key, value as string);
             });
-            logger.info('[OIDC] Redirecting to restart auth flow:', {
+            logger.debug('[OIDC] Redirecting to restart auth flow:', {
                 url: authUrl.toString(),
                 timestamp: new Date().toISOString()
             });
@@ -185,7 +185,7 @@ const configuration: Configuration = {
     },
     interactions: {
         url(ctx: KoaContextWithOIDC, interaction: Interaction) {
-            logger.info('[OIDC] Generating interaction URL:', {
+            logger.debug('[OIDC] Generating interaction URL:', {
                 uid: interaction.uid,
                 prompt: interaction.prompt,
                 params: interaction.params,
@@ -225,13 +225,13 @@ const oidc = new Provider(ISSUER_URL,configuration);
 // Add request logging middleware
 oidc.use(async (ctx: any, next: () => Promise<void>) => {
     const start = Date.now();
-    logger.info(`[OIDC] Incoming ${ctx.request.method} request to ${ctx.request.url}`);
-    logger.info(`[OIDC] Headers: ${JSON.stringify(ctx.request.headers)}`);
+    logger.debug(`[OIDC] Incoming ${ctx.request.method} request to ${ctx.request.url}`);
+    logger.debug(`[OIDC] Headers: ${JSON.stringify(ctx.request.headers)}`);
 
     try {
         await next();
         const duration = Date.now() - start;
-        logger.info(`[OIDC] Request completed in ${duration}ms with status ${ctx.status}`);
+        logger.debug(`[OIDC] Request completed in ${duration}ms with status ${ctx.status}`);
     } catch (err: any) {
         logger.error(`[OIDC] Error processing request: ${err.message}`);
         logger.error(err.stack);
@@ -266,14 +266,14 @@ oidc.on('error', (err: Error, ctx: any) => {
         case 'InvalidRequest':
             logger.warn('[OIDC] Invalid request - checking parameters');
             if (ctx?.oidc?.params) {
-                logger.info(`[OIDC] Request parameters: ${JSON.stringify(ctx.oidc.params)}`);
+                logger.debug(`[OIDC] Request parameters: ${JSON.stringify(ctx.oidc.params)}`);
             }
             break;
 
         case 'AccessDenied':
             logger.warn('[OIDC] Access denied - checking session state');
             if (ctx?.oidc?.session) {
-                logger.info(`[OIDC] Session state: ${JSON.stringify({
+                logger.debug(`[OIDC] Session state: ${JSON.stringify({
                     uid: ctx.oidc.session.uid,
                     accountId: ctx.oidc.session.accountId,
                     exp: ctx.oidc.session.exp,
@@ -283,15 +283,15 @@ oidc.on('error', (err: Error, ctx: any) => {
 
         case 'SessionNotFound':
             logger.warn('[OIDC] Session not found - checking cookies and headers');
-            logger.info(`[OIDC] Request cookies: ${JSON.stringify(ctx.request.cookies)}`);
-            logger.info(`[OIDC] Request headers: ${JSON.stringify(ctx.request.headers)}`);
+            logger.debug(`[OIDC] Request cookies: ${JSON.stringify(ctx.request.cookies)}`);
+            logger.debug(`[OIDC] Request headers: ${JSON.stringify(ctx.request.headers)}`);
             break;
 
         case 'ExpiredToken':
             logger.warn('[OIDC] Token expired - checking expiration details');
             if (ctx?.oidc?.entities?.AccessToken || ctx?.oidc?.entities?.AuthorizationCode) {
                 const token = ctx.oidc.entities.AccessToken || ctx.oidc.entities.AuthorizationCode;
-                logger.info(`[OIDC] Token details: ${JSON.stringify({
+                logger.debug(`[OIDC] Token details: ${JSON.stringify({
                     exp: token.exp,
                     iat: token.iat,
                     kind: token.kind,
@@ -302,7 +302,7 @@ oidc.on('error', (err: Error, ctx: any) => {
         default:
             logger.error(`[OIDC] Unhandled error type: ${errorType}`);
             if (ctx?.oidc?.session) {
-                logger.info(`[OIDC] Current session state: ${JSON.stringify({
+                logger.debug(`[OIDC] Current session state: ${JSON.stringify({
                     uid: ctx.oidc.session.uid,
                     accountId: ctx.oidc.session.accountId,
                     exp: ctx.oidc.session.exp,
@@ -316,13 +316,13 @@ oidc.on('error', (err: Error, ctx: any) => {
         // Store the original request parameters in session
         if (ctx?.req?.session && ctx?.oidc?.params) {
             ctx.req.session.originalAuthParams = ctx.oidc.params;
-            logger.info('[OIDC] Stored original auth parameters in session');
+            logger.debug('[OIDC] Stored original auth parameters in session');
             // Redirect to restart the auth flow
             const authUrl = new URL('/auth', process.env.ISSUER_URL || 'http://localhost:5001');
             Object.entries(ctx.oidc.params).forEach(([key, value]) => {
                 authUrl.searchParams.append(key, value as string);
             });
-            logger.info(`[OIDC] Redirecting to: ${authUrl.toString()}`);
+            logger.debug(`[OIDC] Redirecting to: ${authUrl.toString()}`);
             ctx.res.redirect(authUrl.toString());
             return;
         }
@@ -330,10 +330,10 @@ oidc.on('error', (err: Error, ctx: any) => {
 
     // Log additional context for debugging
     if (ctx?.oidc?.session) {
-        logger.info(`[OIDC] Session state: ${JSON.stringify(ctx.oidc.session)}`);
+        logger.debug(`[OIDC] Session state: ${JSON.stringify(ctx.oidc.session)}`);
     }
     if (ctx?.oidc?.client) {
-        logger.info(`[OIDC] Client details: ${JSON.stringify(ctx.oidc.client)}`);
+        logger.debug(`[OIDC] Client details: ${JSON.stringify(ctx.oidc.client)}`);
     }
 });
 
@@ -351,7 +351,7 @@ oidc.on('grant.success', (ctx: KoaContextWithOIDC, token: any) => {
 
         // Log grant details
         if (ctx.oidc.grant) {
-            logger.info('[OIDC] Grant details:', {
+            logger.debug('[OIDC] Grant details:', {
                 grantId: ctx.oidc.grant.grantId,
                 accountId: ctx.oidc.grant.accountId,
                 clientId: ctx.oidc.grant.clientId,
@@ -361,7 +361,7 @@ oidc.on('grant.success', (ctx: KoaContextWithOIDC, token: any) => {
         }
 
         // Log token details
-        logger.info('[OIDC] Token issued:', {
+        logger.debug('[OIDC] Token issued:', {
             type: token.kind || 'unknown',
             clientId: ctx.oidc.client?.clientId,
             accountId: ctx.oidc.session?.accountId,
@@ -398,7 +398,7 @@ oidc.on('grant.created', (ctx: KoaContextWithOIDC, grant: any) => {
             logger.error('[OIDC] Grant creation failed: grant is undefined');
             return;
         }
-        logger.info('[OIDC] Grant created:', {
+        logger.debug('[OIDC] Grant created:', {
             grantId: grant.grantId,
             clientId: grant.clientId,
             accountId: grant.accountId,
@@ -421,7 +421,7 @@ oidc.on('grant.saved', (ctx: KoaContextWithOIDC, grant: any) => {
             logger.error('[OIDC] Grant save failed: grant is undefined');
             return;
         }
-        logger.info('[OIDC] Grant saved:', {
+        logger.debug('[OIDC] Grant saved:', {
             grantId: grant.grantId,
             clientId: grant.clientId,
             accountId: grant.accountId,
@@ -449,7 +449,7 @@ oidc.on('interaction.created', (ctx: KoaContextWithOIDC, interaction: any) => {
     const timeRemaining = expiresAt ? expiresAt - now : 'unknown';
     const req = ctx.req as any; // Type assertion for session properties
 
-    logger.info('[OIDC] Interaction created:', {
+    logger.debug('[OIDC] Interaction created:', {
         uid: interaction.uid,
         prompt: interaction.prompt?.name,
         params: interaction.params,
@@ -482,7 +482,7 @@ oidc.on('interaction.details', (ctx: KoaContextWithOIDC, interaction: any) => {
     const timeRemaining = expiresAt ? expiresAt - now : 'unknown';
     const req = ctx.req as any; // Type assertion for session properties
 
-    logger.info('[OIDC] Interaction details retrieved:', {
+    logger.debug('[OIDC] Interaction details retrieved:', {
         uid: interaction.uid,
         prompt: interaction.prompt?.name,
         params: interaction.params,
